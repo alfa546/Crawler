@@ -2,7 +2,7 @@
 # One-shot fix for the "uncommitted changes" + "Unlink of file" install state.
 #
 # Usage:
-#   iwr https://raw.githubusercontent.com/alfa546/Crawler/master/recover-windows.ps1 -OutFile recover.ps1
+#   iwr https://raw.githubusercontent.com/alfa546/Crawler/main/recover-windows.ps1 -OutFile recover.ps1
 #   powershell -ExecutionPolicy Bypass -File .\recover.ps1
 
 $ErrorActionPreference = 'Continue'
@@ -40,19 +40,19 @@ if ($conns) {
     Write-Host '  nothing running on port 5002' -ForegroundColor Green
 }
 
-# 2. Hard-reset to origin/master with locks/gc suppressed
+# 2. Hard-reset to origin/main with locks/gc suppressed
 Write-Host ''
-Write-Host '>>> Resetting working tree to origin/master...'
+Write-Host '>>> Resetting working tree to origin/main...'
 $env:GIT_OPTIONAL_LOCKS = '0'
 Push-Location $InstallDir
 try {
-    git -c gc.auto=0 fetch --quiet origin master
+    git -c gc.auto=0 fetch --quiet origin main
     if ($LASTEXITCODE -ne 0) {
         Write-Host '  git fetch failed' -ForegroundColor Red
         Pop-Location
         exit 1
     }
-    git -c gc.auto=0 reset --hard origin/master
+    git -c gc.auto=0 reset --hard origin/main
     if ($LASTEXITCODE -ne 0) {
         Write-Host '  git reset failed' -ForegroundColor Red
         Pop-Location

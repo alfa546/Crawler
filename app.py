@@ -611,7 +611,7 @@ def crawl_budget_analyze():
 @app.route('/version')
 def version():
     """Local build SHA, served to the UI for display + comparison
-    against the GitHub master HEAD (client-side fetch)."""
+    against the GitHub main HEAD (client-side fetch)."""
     return jsonify({
         'sha': _local_commit_sha(),
         'repo': 'alfa546/Crawler',
@@ -620,7 +620,7 @@ def version():
 
 @app.route('/update', methods=['POST'])
 def update_self():
-    """Reconcile the local checkout to origin/master and report the result.
+    """Reconcile the local checkout to origin/main and report the result.
     Restart is handled separately (POST /restart) so the UI can fire it
     immediately after.
 
@@ -635,7 +635,7 @@ def update_self():
         which used to abort the update outright.
       * When a clean fast-forward isn't possible (CRLF-dirtied tree, a
         prior half-applied pull, or diverging history) it hard-resets to
-        origin/master. That's the same self-healing behaviour the
+        origin/main. That's the same self-healing behaviour the
         installer's Autostart.ps1 / Update.ps1 / recover-windows.ps1 use,
         so a broken checkout repairs itself on the next update or reboot.
     Untracked files (crawl data, logs, the venv) survive the reset."""
@@ -663,21 +663,21 @@ def update_self():
     before = _local_commit_sha()
     before_req = _req_hash()
     try:
-        fetch = _git('fetch', '--quiet', 'origin', 'master')
+        fetch = _git('fetch', '--quiet', 'origin', 'main')
         if fetch.returncode != 0:
             return jsonify({'ok': False, 'error': ('git fetch failed: ' + (fetch.stderr or fetch.stdout).strip())[:400]}), 500
 
         # Prefer a clean fast-forward so untouched installs aren't reset; fall
         # back to a hard reset only when that's impossible (the broken-Windows
-        # case). Either way the tree ends up exactly on origin/master.
-        ff = _git('merge', '--ff-only', 'origin/master')
+        # case). Either way the tree ends up exactly on origin/main.
+        ff = _git('merge', '--ff-only', 'origin/main')
         if ff.returncode != 0:
-            reset = _git('reset', '--hard', 'origin/master')
+            reset = _git('reset', '--hard', 'origin/main')
             if reset.returncode != 0:
                 return jsonify({'ok': False, 'error': ('git reset failed: ' + (reset.stderr or reset.stdout).strip())[:400]}), 500
-            msg = 'Hard-reset to origin/master (fast-forward was not possible).'
+            msg = 'Hard-reset to origin/main (fast-forward was not possible).'
         else:
-            msg = (ff.stdout.strip() or 'Fast-forwarded to origin/master.')
+            msg = (ff.stdout.strip() or 'Fast-forwarded to origin/main.')
 
         # Reinstall deps if requirements.txt changed, using this venv's pip,
         # before the restart picks up the new code.

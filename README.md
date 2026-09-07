@@ -107,7 +107,7 @@ Every report exports to XLSX so you can hand it to a content team or dev:
 
 ### Auto-update + version badge
 
-- Topbar version badge shows the current build, polls GitHub for newer commits, and flips to **"Update available"** when there's a newer master commit.
+- Topbar version badge shows the current build, polls GitHub for newer commits, and flips to **"Update available"** when there's a newer main commit.
 - One click runs `git pull + restart service + reload page` end-to-end. No SSH, no manual commands.
 - Background daily auto-update (Linux systemd timer / macOS LaunchAgent / Windows Task Scheduler) keeps everyone on the latest without you thinking about it. Rolls back automatically if a pull breaks the app.
 
@@ -151,7 +151,7 @@ Each installer registers the crawler as a background service that starts on boot
 Open a terminal and paste:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/alfa546/Crawler/master/install.sh -o install.sh && chmod +x install.sh && ./install.sh
+curl -fsSL https://raw.githubusercontent.com/alfa546/Crawler/main/install.sh -o install.sh && chmod +x install.sh && ./install.sh
 ```
 
 That's it. When it finishes your browser opens to `http://localhost:5002/`.
@@ -159,7 +159,7 @@ That's it. When it finishes your browser opens to `http://localhost:5002/`.
 Optional dry-run preflight (checks Python, port, disk, internet; makes no changes):
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/alfa546/Crawler/master/install.sh -o install.sh && chmod +x install.sh && ./install.sh --check
+curl -fsSL https://raw.githubusercontent.com/alfa546/Crawler/main/install.sh -o install.sh && chmod +x install.sh && ./install.sh --check
 ```
 
 What the installer does:
@@ -193,13 +193,13 @@ Works on Intel + Apple Silicon, macOS 11 Big Sur and newer. Uses Homebrew + `lau
 Open Terminal (⌘+Space → "Terminal") and paste:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/alfa546/Crawler/master/install-macos.sh -o install-macos.sh && chmod +x install-macos.sh && ./install-macos.sh
+curl -fsSL https://raw.githubusercontent.com/alfa546/Crawler/main/install-macos.sh -o install-macos.sh && chmod +x install-macos.sh && ./install-macos.sh
 ```
 
 Dry-run preflight:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/alfa546/Crawler/master/install-macos.sh -o install-macos.sh && chmod +x install-macos.sh && ./install-macos.sh --check
+curl -fsSL https://raw.githubusercontent.com/alfa546/Crawler/main/install-macos.sh -o install-macos.sh && chmod +x install-macos.sh && ./install-macos.sh --check
 ```
 
 What the installer does:
@@ -231,13 +231,13 @@ Uses `winget` + a Startup-folder shortcut. No admin rights needed.
 Open PowerShell (Start menu → type "powershell" → Enter) and paste:
 
 ```powershell
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iwr https://raw.githubusercontent.com/alfa546/Crawler/master/install-windows.ps1 -OutFile install.ps1; powershell -ExecutionPolicy Bypass -File .\install.ps1
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iwr https://raw.githubusercontent.com/alfa546/Crawler/main/install-windows.ps1 -OutFile install.ps1; powershell -ExecutionPolicy Bypass -File .\install.ps1
 ```
 
 Dry-run preflight:
 
 ```powershell
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iwr https://raw.githubusercontent.com/alfa546/Crawler/master/install-windows.ps1 -OutFile install.ps1; powershell -ExecutionPolicy Bypass -File .\install.ps1 -Check
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; iwr https://raw.githubusercontent.com/alfa546/Crawler/main/install-windows.ps1 -OutFile install.ps1; powershell -ExecutionPolicy Bypass -File .\install.ps1 -Check
 ```
 
 > The `Tls12` prefix forces a modern TLS handshake — without it, Windows PowerShell 5.1 on some machines defaults to TLS 1.0/1.1 and the GitHub download fails with *"Could not create SSL/TLS secure channel."*

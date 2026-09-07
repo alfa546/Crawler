@@ -6,7 +6,7 @@
 #   - Auto-update: runs `git pull` on every logon before launching the app
 #
 # Usage (from a NORMAL PowerShell window - no admin):
-#   iwr https://raw.githubusercontent.com/alfa546/Crawler/master/install-windows.ps1 -OutFile install.ps1
+#   iwr https://raw.githubusercontent.com/alfa546/Crawler/main/install-windows.ps1 -OutFile install.ps1
 #   powershell -ExecutionPolicy Bypass -File .\install.ps1
 #
 # Flags:
@@ -269,7 +269,7 @@ $env:GIT_OPTIONAL_LOCKS = '0'
 if (Test-Path (Join-Path $INSTALL_DIR '.git')) {
     Write-Host (">>> Updating existing repo at " + $INSTALL_DIR)
     Push-Location $INSTALL_DIR
-    git -c gc.auto=0 fetch --quiet origin master
+    git -c gc.auto=0 fetch --quiet origin main
     if ($LASTEXITCODE -ne 0) {
         Pop-Location
         Fail 'git fetch failed - check network / antivirus.'
@@ -278,10 +278,10 @@ if (Test-Path (Join-Path $INSTALL_DIR '.git')) {
     # prior failed pull left the tree mid-state), hard-reset to origin.
     # Untracked installer artifacts (Run.ps1, autostart.log, etc.) are
     # ignored via .gitignore so they survive the reset.
-    git -c gc.auto=0 pull --ff-only --quiet origin master 2>$null
+    git -c gc.auto=0 pull --ff-only --quiet origin main 2>$null
     if ($LASTEXITCODE -ne 0) {
-        Warn 'Fast-forward not possible (diverging branches). Hard-resetting to origin/master...'
-        git -c gc.auto=0 reset --hard origin/master
+        Warn 'Fast-forward not possible (diverging branches). Hard-resetting to origin/main...'
+        git -c gc.auto=0 reset --hard origin/main
         if ($LASTEXITCODE -ne 0) {
             Pop-Location
             Fail 'git reset failed - manual cleanup needed.'
@@ -367,11 +367,11 @@ if ($conns) {
 }
 
 $reqBefore = if (Test-Path 'requirements.txt') { (Get-FileHash 'requirements.txt' -Algorithm SHA1).Hash } else { '' }
-git -c gc.auto=0 fetch --quiet origin master
-git -c gc.auto=0 pull --ff-only --quiet origin master 2>$null
+git -c gc.auto=0 fetch --quiet origin main
+git -c gc.auto=0 pull --ff-only --quiet origin main 2>$null
 if ($LASTEXITCODE -ne 0) {
-    Write-Host 'Fast-forward not possible - hard-resetting to origin/master.' -ForegroundColor Yellow
-    git -c gc.auto=0 reset --hard origin/master
+    Write-Host 'Fast-forward not possible - hard-resetting to origin/main.' -ForegroundColor Yellow
+    git -c gc.auto=0 reset --hard origin/main
 }
 $reqAfter  = if (Test-Path 'requirements.txt') { (Get-FileHash 'requirements.txt' -Algorithm SHA1).Hash } else { '' }
 if ($reqBefore -ne $reqAfter) {
@@ -429,11 +429,11 @@ try {
         param($dir)
         $env:GIT_OPTIONAL_LOCKS = '0'
         Set-Location $dir
-        git -c gc.auto=0 fetch --quiet origin master 2>&1
-        $pullOut = git -c gc.auto=0 pull --ff-only --quiet origin master 2>&1
+        git -c gc.auto=0 fetch --quiet origin main 2>&1
+        $pullOut = git -c gc.auto=0 pull --ff-only --quiet origin main 2>&1
         if ($LASTEXITCODE -ne 0) {
-            'fast-forward not possible - hard-reset to origin/master'
-            git -c gc.auto=0 reset --hard origin/master 2>&1
+            'fast-forward not possible - hard-reset to origin/main'
+            git -c gc.auto=0 reset --hard origin/main 2>&1
         } else {
             $pullOut
         }

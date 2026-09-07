@@ -27,7 +27,7 @@
       <button id="sc-view-budget-btn" class="sc-view-btn" type="button" onclick="scShowView('budget')" title="Find URL patterns wasting crawl budget">Crawl Budget</button>
     </nav>
     <!-- Build version + update-check. JS in head queries GitHub API for
-         master HEAD; if different from local, swap the title to indicate
+         main HEAD; if different from local, swap the title to indicate
          update available + show a 'Pull update' link. -->
     <span id="build-version" title="Installed build. Click to check for updates." style="font-size:11px;color:var(--text-muted);font-family:'SF Mono','Menlo',monospace;cursor:pointer;padding:3px 8px;border-radius:4px;" onclick="versionBadgeClick()">v {{ build_sha }}</span>
     <!-- Global exports — sit in the topbar (not per-view header) because they
@@ -82,7 +82,7 @@
       if (icon && cur === 'light') {
         icon.innerHTML = '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
       }
-      // Update check: compare local short SHA with GitHub master HEAD.
+      // Update check: compare local short SHA with GitHub main HEAD.
       // Cached for 1h in localStorage so we don't hit GitHub on every
       // page load. Silent on failure — never block the UI.
       (async () => {
@@ -101,7 +101,7 @@
         let remote = cacheFresh ? cache.sha : null;
         if (!remote) {
           try {
-            const r = await fetch('https://api.github.com/repos/alfa546/Crawler/commits/master', { headers: { 'Accept': 'application/vnd.github+json' } });
+            const r = await fetch('https://api.github.com/repos/alfa546/Crawler/commits/main', { headers: { 'Accept': 'application/vnd.github+json' } });
             if (r.ok) {
               const d = await r.json();
               remote = (d.sha || '').slice(0, 7);
