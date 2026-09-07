@@ -22,6 +22,9 @@
       <button id="sc-view-crawler-btn" class="sc-view-btn active" type="button" onclick="scShowView('crawler')">Crawler</button>
       <button id="sc-view-budget-btn" class="sc-view-btn" type="button" onclick="scShowView('budget')" title="Find URL patterns wasting crawl budget">Crawl Budget</button>
     </nav>
+    <div id="seo-score-container" style="display:none; margin-left: auto; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; background: var(--surface2); border: 1px solid var(--border); transition: all 0.3s ease;">
+      SEO Score: <span id="seo-score-value">--</span><span style="font-size: 11px; opacity: 0.7;">/100</span>
+    </div>
     <!-- Build version + update-check. JS in head queries GitHub API for
          main HEAD; if different from local, swap the title to indicate
          update available + show a 'Pull update' link. -->

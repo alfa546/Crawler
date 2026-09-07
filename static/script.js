@@ -3423,6 +3423,33 @@ function updateCounts() {
     const k = el.dataset.count;
     if (k in counts) el.textContent = counts[k];
   });
+  // --- SEO Score Calculation ---
+  const scoreContainer = document.getElementById('seo-score-container');
+  const scoreValue = document.getElementById('seo-score-value');
+  if (scoreContainer && scoreValue) {
+    if (crawlerResults && crawlerResults.length > 0) {
+      scoreContainer.style.display = 'block';
+      let totalDeductions = 0;
+      for (const page of crawlerResults) {
+        const issues = page.issues || [];
+        issues.forEach(iss => {
+          const s = sev(iss);
+          if (s === 'error') totalDeductions += 5;
+          else if (s === 'warn') totalDeductions += 2;
+        });
+      }
+      let score = Math.max(0, 100 - (totalDeductions / crawlerResults.length));
+      score = Math.round(score);
+      scoreValue.textContent = score;
+      if (score >= 90) scoreValue.style.color = '#22c55e';
+      else if (score >= 70) scoreValue.style.color = '#f59e0b';
+      else scoreValue.style.color = '#ef4444';
+    } else {
+      scoreContainer.style.display = 'none';
+      scoreValue.textContent = '--';
+    }
+  }
+
   // Re-sort the sidebar so red errors with hits float to the top of each
   // section, amber warnings next, then "all clear ✓" rows last.
   _sortIssueSidebar();
