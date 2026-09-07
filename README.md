@@ -2,6 +2,7 @@
 
 [![Platform: Linux · macOS · Windows](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-blue)](#one-line-install--auto-start--auto-update-linux--macos--windows)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 **Crawler is a free, open-source SEO crawler you run locally** — a self-hosted website SEO crawler and site audit tool that crawls any website for technical SEO issues. Fast, concurrent, and CMS-aware, it's a drop-in alternative to Screaming Frog, Sitebulb, and Ahrefs Site Audit, with no accounts, no API keys, no cloud, and no per-URL limits.
 
@@ -357,7 +358,7 @@ Screaming Frog, Sitebulb, Ahrefs, Shopify, WordPress, Yoast SEO, Rank Math, Webf
 
 ## Contributing
 
-PRs welcome. The whole crawler is one readable Flask file (`app.py`) plus a minimal frontend, easy to extend.
+Contributions are warmly welcome! Whether you are reporting bugs, improving documentation, or adding new features, please read our **[CONTRIBUTING.md](CONTRIBUTING.md)** for detailed development setup and pull request guidelines.
 
 ## FAQ
 
@@ -375,6 +376,12 @@ Yes. It auto-detects 10 CMS platforms (Shopify, WordPress + Yoast / Rank Math, W
 
 **Is it really free and open source?**
 Yes — open-source and self-hosted, running entirely on your machine. No telemetry, no phone-home, no per-URL billing.
+
+## License
+
+This project is open-source software licensed under the [MIT License](LICENSE).
+
+Copyright (c) 2026 Nouman Sajid.
 
 ## Related search terms
 
