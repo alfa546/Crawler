@@ -188,11 +188,11 @@ body {
   gap: 10px;
   color: var(--text);
 }
-.brand svg {
-  width: 26px;
-  height: 26px;
+.brand img {
+  width: 28px;
+  height: 28px;
   border-radius: 7px;
-  box-shadow: 0 1px 3px rgba(79, 70, 229, 0.25);
+  box-shadow: 0 1px 3px rgba(99, 102, 241, 0.4);
 }
 .sub {
   color: var(--text-muted);
