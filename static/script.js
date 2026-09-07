@@ -3429,21 +3429,40 @@ function updateCounts() {
   if (scoreContainer && scoreValue) {
     if (crawlerResults && crawlerResults.length > 0) {
       scoreContainer.style.display = 'block';
-      let totalDeductions = 0;
+      let totalScore = 0;
+      
       for (const page of crawlerResults) {
+        let pageScore = 100;
+        let isFatal = false;
         const issues = page.issues || [];
+        
         issues.forEach(iss => {
-          const s = sev(iss);
-          if (s === 'error') totalDeductions += 5;
-          else if (s === 'warn') totalDeductions += 2;
+          const l = iss.toLowerCase();
+          // Google Lighthouse style weighting
+          if (/search engines blocked|^http [45]/.test(l)) isFatal = true; // Not indexed
+          else if (/missing title/.test(l)) pageScore -= 20;
+          else if (/missing viewport/.test(l)) pageScore -= 15;
+          else if (/missing meta description/.test(l)) pageScore -= 10;
+          else if (/missing canonical/.test(l)) pageScore -= 10;
+          else if (/imgs missing alt|images missing alt/.test(l)) pageScore -= 10;
+          else if (/served over http|^mixed content/.test(l)) pageScore -= 10;
+          else if (/thin content/.test(l)) pageScore -= 10;
+          else {
+            const s = sev(iss);
+            if (s === 'error') pageScore -= 10;
+            else if (s === 'warn') pageScore -= 3;
+          }
         });
+
+        if (isFatal) pageScore = 0;
+        totalScore += Math.max(0, pageScore);
       }
-      let score = Math.max(0, 100 - (totalDeductions / crawlerResults.length));
-      score = Math.round(score);
+      
+      let score = Math.round(totalScore / crawlerResults.length);
       scoreValue.textContent = score;
-      if (score >= 90) scoreValue.style.color = '#22c55e';
-      else if (score >= 70) scoreValue.style.color = '#f59e0b';
-      else scoreValue.style.color = '#ef4444';
+      if (score >= 90) scoreValue.style.color = '#22c55e'; // Green
+      else if (score >= 70) scoreValue.style.color = '#f59e0b'; // Amber
+      else scoreValue.style.color = '#ef4444'; // Red
     } else {
       scoreContainer.style.display = 'none';
       scoreValue.textContent = '--';
