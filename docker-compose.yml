@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  crawler:
+    build: .
+    ports:
+      - "5002:5002"
+    volumes:
+      - ./proxies.txt:/app/proxies.txt
+      # Uncomment the below line when SQLite is fully enabled to persist data
+      # - ./crawler.db:/app/crawler.db
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
