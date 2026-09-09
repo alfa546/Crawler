@@ -18,7 +18,7 @@
 ### 🎥 See it in Action
 
 <div align="center">
-  <img src="demo.gif" width="100%" alt="Crawler Live Demo" />
+  <img src="demo_v2.gif" width="100%" alt="Crawler Live Demo" />
 </div>
 
 ---
