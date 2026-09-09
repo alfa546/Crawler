@@ -15,6 +15,12 @@
 
 **Crawler** is an enterprise-grade, open-source technical SEO crawler that runs locally on your machine. We've completely **redesigned the UI** and introduced **Live SEO Ranking** to make it the ultimate, drop-in alternative to tools like Screaming Frog, Sitebulb, and Ahrefs Site Audit. No accounts, no cloud, no per-URL limits—just unlimited SEO auditing power.
 
+### 🎥 See it in Action
+
+<div align="center">
+  <video src="read.me%20video.mp4" width="100%" controls="controls"></video>
+</div>
+
 ---
 
 ## ✨ What's New
