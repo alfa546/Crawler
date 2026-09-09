@@ -124,7 +124,6 @@ def detect_cms(url, html=None, headers=None):
     html_sample = (html or '')[:80000]  # cap scan to first 80kb — fingerprints live in <head>
     lower = html_sample.lower()
     signals = []
-    confidence = 'low'
 
     def meta_generator():
         m = _re.search(r'<meta[^>]+name=["\']generator["\'][^>]+content=["\']([^"\']+)["\']', html_sample, _re.I)

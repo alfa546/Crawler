@@ -1,6 +1,6 @@
 from .globals import ACTIVE_CRAWL_RULES, ACTIVE_CRAWL_LIMITS, SUSPENDED_CRAWLS, SUSPENDED_CRAWL_TTL
 import json, time, os, re, logging, threading
-from queue import Queue, Empty
+from queue import Queue
 from urllib.parse import urlparse, urljoin, urlunparse, parse_qs, urlencode
 import requests
 from bs4 import BeautifulSoup
@@ -1436,11 +1436,6 @@ def crawl_site():
         in_flight = {}  # future -> (url, depth)
         consecutive_errors = 0
 
-        def _visit(url):
-            visited.add(url)
-            alt = _crawl_slash_alt(url)
-            if alt:
-                visited.add(alt)
 
         def _dequeue_next():
             """Pop the next URL that passes filters + robots. Returns (url, depth) or None.

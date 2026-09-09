@@ -30,25 +30,6 @@ def _http_get(url, **kwargs):
         return r
 
 
-def _http_head(url, **kwargs):
-    proxy = PROXY_MGR.get_proxy()
-    if proxy:
-        kwargs['proxies'] = {'http': proxy, 'https': proxy}
-    """HEAD counterpart to _http_get with the same SSL-fallback behaviour."""
-    try:
-        r = requests.head(url, **kwargs)
-        r.ssl_bypassed = False
-        return r
-    except requests.exceptions.SSLError:
-        try:
-            import urllib3
-            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-        except Exception:
-            pass
-        kwargs['verify'] = False
-        r = requests.head(url, **kwargs)
-        r.ssl_bypassed = True
-        return r
 
 
 def _robots_pattern_match(pattern, url):
