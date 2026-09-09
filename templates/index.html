@@ -181,6 +181,185 @@
     }
   </script>
 
+<style>
+/* Revamped Inputs and Sliders */
+.sidebar {
+  background: var(--surface2) !important;
+  border-radius: 16px !important;
+  padding: 24px !important;
+  box-shadow: 0 8px 30px rgba(0,0,0,0.15) !important;
+  border: 1px solid var(--border) !important;
+}
+.sidebar label {
+  font-weight: 700 !important;
+  font-size: 13.5px !important;
+  color: var(--text) !important;
+  margin-bottom: 8px !important;
+  display: block;
+}
+.sidebar input[type="url"], .sidebar textarea {
+  background: var(--surface) !important;
+  border: 2px solid var(--border) !important;
+  border-radius: 10px !important;
+  padding: 12px 16px !important;
+  font-size: 14px !important;
+  color: var(--text) !important;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  box-shadow: inset 0 2px 4px rgba(0,0,0,0.02) !important;
+  width: 100%;
+}
+.sidebar input[type="url"]:focus, .sidebar textarea:focus {
+  border-color: var(--accent) !important;
+  box-shadow: 0 0 0 4px rgba(99,102,241,0.15) !important;
+  outline: none !important;
+}
+.slider-row {
+  background: var(--surface) !important;
+  padding: 16px !important;
+  border-radius: 12px !important;
+  border: 1px solid var(--border) !important;
+  margin-bottom: 14px !important;
+  transition: transform 0.25s, box-shadow 0.25s !important;
+}
+.slider-row:hover {
+  border-color: rgba(99,102,241,0.4) !important;
+  box-shadow: 0 6px 16px rgba(99,102,241,0.08) !important;
+  transform: translateY(-2px) !important;
+}
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 6px;
+  background: var(--border);
+  border-radius: 4px;
+  outline: none;
+  margin-top: 12px;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(99,102,241,0.5);
+  transition: transform 0.15s ease;
+}
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.3);
+}
+.actions button, #crawler-start-btn, #crawler-stop-btn {
+  padding: 14px !important;
+  font-size: 15px !important;
+  font-weight: 700 !important;
+  border-radius: 10px !important;
+  transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275) !important;
+  cursor: pointer;
+}
+#crawler-start-btn {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 4px 15px rgba(99,102,241,0.3) !important;
+}
+#crawler-start-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 20px rgba(99,102,241,0.5) !important;
+}
+#crawler-stop-btn {
+  background: linear-gradient(135deg, #ef4444, #f43f5e) !important;
+  color: white !important;
+  border: none !important;
+  box-shadow: 0 4px 15px rgba(239,68,68,0.3) !important;
+}
+
+/* Checkboxes */
+.sidebar .check {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  padding: 14px 16px !important;
+  background: var(--surface) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 10px !important;
+  margin-bottom: 10px !important;
+  cursor: pointer !important;
+  transition: all 0.25s !important;
+  font-weight: 600 !important;
+}
+.sidebar .check:hover {
+  border-color: rgba(99,102,241,0.5) !important;
+  background: var(--surface2) !important;
+  transform: translateX(4px) !important;
+}
+.sidebar input[type="checkbox"] {
+  width: 20px !important;
+  height: 20px !important;
+  border-radius: 6px !important;
+  accent-color: var(--accent) !important;
+  cursor: pointer !important;
+}
+
+/* Crawl Budget Cards Redesign */
+.cb-explainers {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 24px;
+  margin-top: 40px;
+}
+.cb-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 28px 24px;
+  position: relative;
+  overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+}
+.cb-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 5px;
+  background: linear-gradient(90deg, #6366f1, #a855f7);
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.cb-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 16px 32px rgba(0,0,0,0.12);
+  border-color: transparent;
+}
+.cb-card:hover::before { opacity: 1; }
+.cb-card h3 {
+  font-size: 19px;
+  font-weight: 800;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--text);
+}
+.cb-card p {
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--text-muted);
+}
+.cb-icon-wrapper {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: rgba(99,102,241,0.15);
+  color: var(--accent);
+  font-size: 22px;
+  box-shadow: inset 0 2px 4px rgba(255,255,255,0.1);
+}
+</style>
+
   <main class="wrap">
     <aside class="sidebar">
       <label>Website URL
@@ -640,16 +819,16 @@
 
       <div class="cb-explainers">
         <div class="cb-card">
-          <h3>🔍 What is this?</h3>
-          <p>Many sites generate huge numbers of URLs from <strong>query parameters</strong> — pagination widgets (<code>?e-page-…</code>), faceted filters (<code>?color=red&amp;size=lg</code>), sorting (<code>?orderby=price</code>) and tracking tags (<code>?utm_source=…</code>). These create thousands of near-duplicate or thin pages that aren't real content. This page scans your site, finds those patterns, and shows how many phantom URLs each one spawns.</p>
+          <h3><div class="cb-icon-wrapper">🔍</div> What is this?</h3>
+          <p>Modern websites dynamically generate <strong>infinite URLs</strong> using query parameters (like pagination <code>?page=2</code>, filters <code>?color=blue</code>, or tracking tags). These aren't unique content, but "phantom URLs" that dilute your SEO equity. This intelligent scanner hunts down these exact patterns on your site and visualizes how much of your architecture is wasting precious index bandwidth.</p>
         </div>
         <div class="cb-card">
-          <h3>🤖 Why add to robots.txt?</h3>
-          <p>A <code>Disallow:</code> rule tells Googlebot <em>not to crawl</em> those parameter URLs at all — so it never wastes a request on them. It's the right tool for parameter traps because it stops the fetch at the source. <strong>Note:</strong> robots.txt blocks crawling, not indexing — if junk URLs are already indexed, also add a <code>canonical</code> or <code>noindex</code> until they drop out.</p>
+          <h3><div class="cb-icon-wrapper">🤖</div> Why add to robots.txt?</h3>
+          <p>Writing a <code>Disallow:</code> directive acts as a hard stop sign for Search Engine spiders (like Googlebot). Instead of letting them fetch a junk URL and then figure out it's useless, the crawler skips it entirely at the source. It is the absolute <strong>most effective, server-friendly</strong> defense against parameter URL traps. <em>Note: Use Canonical tags for URLs already indexed.</em></p>
         </div>
         <div class="cb-card">
-          <h3>⚡ Why it helps crawl budget</h3>
-          <p>Googlebot fetches only a finite number of URLs per site in a given period — your <strong>crawl budget</strong>. Every phantom parameter URL it crawls is budget <em>not</em> spent on real pages. A site with 9,500 real pages but 30,000+ parameter URLs can have Google crawling junk while your actual content gets indexed late. Blocking traps concentrates the budget where it matters.</p>
+          <h3><div class="cb-icon-wrapper">⚡</div> Why it helps Crawl Budget</h3>
+          <p>Google allocates a <strong>strict finite time</strong> (Crawl Budget) to scan your domain. Every second it spends crawling 30,000 auto-generated <code>?sort=price</code> pages is time it <strong>stole</strong> from discovering your newest blog posts, real products, or important updates. Shutting down these traps forces Googlebot to strictly focus its budget on URLs that actually rank and make you money!</p>
         </div>
       </div>
     </div>
