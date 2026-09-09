@@ -17,9 +17,7 @@
 
 ### 🎥 See it in Action
 
-<div align="center">
-  <video src="https://github.com/alfa546/Crawler/raw/main/demo.mp4" width="100%" controls="controls"></video>
-</div>
+https://github.com/alfa546/Crawler/raw/main/demo.mp4
 
 ---
 
