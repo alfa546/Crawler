@@ -17,7 +17,9 @@
 
 ### 🎥 See it in Action
 
-https://github.com/alfa546/Crawler/raw/main/demo.mp4
+<div align="center">
+  <img src="demo.gif" width="100%" alt="Crawler Live Demo" />
+</div>
 
 ---
 
