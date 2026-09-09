@@ -490,3 +490,6 @@ def _probe_url_traps(base, results, session):
     return out
 
 
+
+
+__all__ = [name for name in dir() if not name.startswith('__') and name not in ['requests', 're', 'os', 'BeautifulSoup', 'urlparse', 'urljoin', 'urlunparse', 'parse_qs', 'urlencode', 'PROXY_MGR', 'ProxyManager']]

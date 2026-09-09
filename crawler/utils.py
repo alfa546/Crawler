@@ -425,3 +425,274 @@ def _nd_strip_selectors(html_or_text, selectors):
         return html_or_text
 
 
+
+def _foreign_host_warning(foreign_hosts, domain):
+    if not foreign_hosts:
+        return None
+    total = sum(foreign_hosts.values())
+    detail = ', '.join(f"{h} ({n})" for h, n in sorted(foreign_hosts.items(), key=lambda x: -x[1]))
+    return (f"Excluded {total} sitemap URL(s) on a different host — {detail} — from the "
+            f"orphan / coverage diff. They belong to another site, not {_bare_host(domain)}, "
+            f"so they are not orphans of this crawl.")
+
+
+
+def _cb_normalise_key(k):
+    """Collapse page-builder widget-id suffixes so e-page-0b1537f and
+    e-page-1478160 both group as e-page-* (Elementor uses <name>-<hex>)."""
+    m = _re.match(r'^([a-z][a-z0-9]*-[a-z0-9]+)-[0-9a-f]{6,}$', k)
+    return (m.group(1) + '-*') if m else k
+
+
+def _cb_classify(norm_key):
+    base = norm_key[:-1] if norm_key.endswith('-*') else norm_key  # e-page-* -> e-page-
+    for matcher, typ, why in _CB_PARAM_RULES:
+        try:
+            if matcher(base) or matcher(norm_key):
+                return typ, why
+        except Exception:
+            continue
+    return None, None
+
+
+def _cb_fetch_sitemap_urls(base_url, ua):
+    """Self-contained sitemap fetch (handles sitemap index + robots Sitemap:)."""
+    import html as _html2
+    urls, seen = [], set()
+
+    def parse(sm, depth=0):
+        if depth > 5 or sm in seen:
+            return
+        seen.add(sm)
+        try:
+            r = requests.get(sm, headers=ua, timeout=15)
+            if r.status_code != 200:
+                return
+            c = r.text
+            if '<sitemapindex' in c:
+                for m in _re.findall(r'<loc>\s*(.*?)\s*</loc>', c):
+                    parse(_html2.unescape(m.strip()), depth + 1)
+            else:
+                for m in _re.findall(r'<loc>\s*(.*?)\s*</loc>', c):
+                    u = _html2.unescape(m.strip())
+                    if u:
+                        urls.append(u)
+        except Exception:
+            pass
+
+    hp = base_url.rstrip('/')
+    robots_sitemaps = []
+    try:
+        r = requests.get(hp + '/robots.txt', headers=ua, timeout=10)
+        if r.status_code == 200:
+            for line in r.text.splitlines():
+                if line.strip().lower().startswith('sitemap:'):
+                    robots_sitemaps.append(line.split(':', 1)[1].strip())
+    except Exception:
+        pass
+    for sm in robots_sitemaps:
+        parse(sm)
+    if not urls:
+        parse(hp + '/sitemap_index.xml')
+    if not urls:
+        parse(hp + '/sitemap.xml')
+    if not urls:
+        parse(hp + '/wp-sitemap.xml')
+    return urls
+
+
+def _teardown_pw(pw_page, pw_browser, pw_ctx):
+    for name, obj, method in (('page', pw_page, 'close'), ('browser', pw_browser, 'close'), ('pw', pw_ctx, 'stop')):
+        if obj is not None:
+            try: getattr(obj, method)()
+            except Exception: pass
+
+
+def _discover_sitemaps(domain):
+    """Find sitemap URLs for a domain. Tries robots.txt first, then common
+    default paths. When robots.txt points at a sibling subdomain (multisite
+    misconfiguration) we surface a warning AND also probe the analysed
+    domain's own paths so the diff isn't comparing the crawl against the
+    wrong site's URL set.
+    """
+    found = []
+    seen = set()
+    warnings = []
+
+    def _add(u, src):
+        u = u.strip()
+        if u and u not in seen:
+            seen.add(u)
+            found.append({'url': u, 'source': src})
+
+    analysed_host = (urlparse(domain).netloc or '').lower()
+
+    try:
+        r = _http_get(f"{domain.rstrip('/')}/robots.txt", timeout=10,
+                         headers={'User-Agent': 'Mozilla/5.0'})
+        if r.ok and r.text:
+            for line in r.text.splitlines():
+                line = line.strip()
+                if line.lower().startswith('sitemap:'):
+                    sm_url = line.split(':', 1)[1].strip()
+                    sm_host = (urlparse(sm_url).netloc or '').lower()
+                    src = 'robots.txt'
+                    if sm_host and analysed_host and sm_host != analysed_host:
+                        src = 'robots.txt (DIFFERENT DOMAIN)'
+                        warnings.append(
+                            f"robots.txt declares sitemap on a different host ({sm_host}) "
+                            f"than the site being analysed ({analysed_host}). "
+                            f"Likely multisite misconfiguration — also probing default paths."
+                        )
+                    _add(sm_url, src)
+    except Exception:
+        pass
+
+    has_onsite = any((urlparse(s['url']).netloc or '').lower() == analysed_host for s in found)
+    if not has_onsite:
+        for path in _SITEMAP_DEFAULT_PATHS:
+            url = f"{domain.rstrip('/')}{path}"
+            try:
+                resp = _http_head(url, timeout=8, allow_redirects=True,
+                                     headers={'User-Agent': 'Mozilla/5.0'})
+                if resp.status_code == 405:
+                    resp = _http_get(url, timeout=10, allow_redirects=True,
+                                        headers={'User-Agent': 'Mozilla/5.0'},
+                                        stream=True)
+                    resp.close()
+                if resp.ok:
+                    ct = (resp.headers.get('content-type') or '').lower()
+                    if 'xml' in ct or path.endswith('.xml') or path.endswith('.gz'):
+                        _add(url, 'default-path')
+                        break
+            except Exception:
+                pass
+
+    return found, warnings
+
+
+def _fetch_sitemap_recursive(seed_urls, max_depth=5):
+    """Walk a sitemap (handling sitemap-index recursion) and collect every URL."""
+    import xml.etree.ElementTree as ET
+    import gzip
+
+    urls = []
+    sitemaps_meta = []
+    errors = []
+    visited = set()
+
+    def _walk(sm_url, depth):
+        if depth > max_depth or sm_url in visited:
+            return
+        visited.add(sm_url)
+        try:
+            r = _http_get(sm_url, timeout=20,
+                             headers={'User-Agent': 'Mozilla/5.0',
+                                      'Accept': 'application/xml,text/xml,*/*'})
+            if not r.ok:
+                errors.append({'sitemap': sm_url, 'error': f'http_{r.status_code}'})
+                sitemaps_meta.append({'url': sm_url, 'url_count': 0, 'error': f'http_{r.status_code}'})
+                return
+            content = r.content
+            if sm_url.lower().endswith('.gz'):
+                try:
+                    content = gzip.decompress(content)
+                except Exception:
+                    pass
+            try:
+                root = ET.fromstring(content)
+            except ET.ParseError as e:
+                errors.append({'sitemap': sm_url, 'error': f'xml_parse: {str(e)[:120]}'})
+                sitemaps_meta.append({'url': sm_url, 'url_count': 0, 'error': 'xml_parse'})
+                return
+
+            tag = root.tag.split('}', 1)[-1] if '}' in root.tag else root.tag
+            count_here = 0
+            if tag == 'sitemapindex':
+                for sm_node in root.findall(f'{_SITEMAP_NS}sitemap'):
+                    loc = sm_node.find(f'{_SITEMAP_NS}loc')
+                    if loc is not None and loc.text:
+                        _walk(loc.text.strip(), depth + 1)
+                sitemaps_meta.append({'url': sm_url, 'url_count': 0, 'error': None,
+                                      'is_index': True})
+            else:
+                for url_node in root.findall(f'{_SITEMAP_NS}url'):
+                    loc = url_node.find(f'{_SITEMAP_NS}loc')
+                    if loc is None or not loc.text:
+                        continue
+                    lastmod = url_node.find(f'{_SITEMAP_NS}lastmod')
+                    urls.append({
+                        'url': loc.text.strip(),
+                        'lastmod': lastmod.text.strip() if lastmod is not None and lastmod.text else None,
+                        'source_sitemap': sm_url,
+                    })
+                    count_here += 1
+                sitemaps_meta.append({'url': sm_url, 'url_count': count_here, 'error': None,
+                                      'is_index': False})
+        except Exception as e:
+            errors.append({'sitemap': sm_url, 'error': str(e)[:200]})
+            sitemaps_meta.append({'url': sm_url, 'url_count': 0, 'error': str(e)[:120]})
+
+    for u in seed_urls:
+        _walk(u, 0)
+    return urls, sitemaps_meta, errors
+
+
+def _append_crawl_title_history(name, saved_at, results):
+    """Append one line per crawled page capturing its title + meta description.
+    Best-effort: never raises into the caller."""
+    try:
+        os.makedirs(_CRAWL_FOLDER, exist_ok=True)
+        from datetime import datetime as _dt3
+        ts = _dt3.utcfromtimestamp(saved_at).isoformat(timespec='seconds') + 'Z'
+        seed = (results[0].get('url') if results else '') or ''
+        lines = []
+        for p in results:
+            if not isinstance(p, dict) or not p.get('url'):
+                continue
+            lines.append(json.dumps({
+                'ts': ts,
+                'crawl': name,
+                'seed': seed,
+                'url': p.get('url'),
+                'title': p.get('title') or '',
+                'meta_description': p.get('meta_description') or '',
+            }, ensure_ascii=False))
+        if lines:
+            with open(_CRAWL_TITLE_HISTORY_PATH, 'a') as f:
+                f.write('\n'.join(lines) + '\n')
+    except Exception as e:
+        app.logger.warning(f'[crawl-titles] failed to append title history: {e}')
+
+
+def _all_crawl_folders():
+    """Folders to scan for /crawl/list and /crawl/load. Own dir first
+    so collisions on filename prefer our own copy."""
+    return [_CRAWL_FOLDER] + _CRAWL_FOLDERS_RO
+
+
+def _ip_name_map():
+    """Optional IP → friendly name map (JSON dict) so a shared office
+    instance can label saved crawls with people's names instead of IPs.
+    Falls back to empty dict if the file is missing/unreadable."""
+    try:
+        path = os.environ.get('SITE_CRAWLER_USER_MAP',
+                              os.path.expanduser('~/.site-crawler-users.json'))
+        with open(path) as f:
+            m = json.load(f)
+            return m if isinstance(m, dict) else {}
+    except Exception:
+        return {}
+
+
+def _find_crawl_path(fn):
+    """Locate a saved-crawl file in any of our read folders."""
+    for folder in _all_crawl_folders():
+        p = os.path.join(folder, fn)
+        if os.path.exists(p): return p
+    return None
+
+
+
+
+__all__ = [name for name in dir() if not name.startswith('__') and name not in ['requests', 're', 'os', 'BeautifulSoup', 'urlparse', 'urljoin', 'urlunparse', 'parse_qs', 'urlencode', 'PROXY_MGR', 'ProxyManager']]

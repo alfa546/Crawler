@@ -1,3 +1,4 @@
+STATIC_VERSION = '2.0'
 from flask import Blueprint, render_template, request, Response, stream_with_context, jsonify, send_file
 import json, time, os, re, logging, threading
 from .utils import *
