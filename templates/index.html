@@ -209,21 +209,102 @@
                oninput="document.getElementById('crawler-depth-label').textContent=this.value" />
       </div>
 
-      <div class="slider-row">
-        <label for="crawler-user-agent">User agent</label>
-        <select id="crawler-user-agent" onchange="_scToggleCustomUa(this.value)" style="width:100%;"
-                title="Identity sent with every request. Use Googlebot/bingbot to see what a search engine is served (cloaking checks). Note: this does not get past bot challenges — verified bots are matched by IP, not by user-agent string.">
-          <option value="">Chrome (default)</option>
-          <option value="chrome-mobile">Chrome — mobile</option>
-          <option value="googlebot">Googlebot</option>
-          <option value="googlebot-mobile">Googlebot — smartphone</option>
-          <option value="bingbot">Bingbot</option>
-          <option value="firefox">Firefox</option>
-          <option value="safari">Safari</option>
-          <option value="__custom">Custom…</option>
-        </select>
-        <input type="text" id="crawler-user-agent-custom" placeholder="Paste a custom user-agent string"
-               style="width:100%;margin-top:4px;display:none;" />
+      <div class="slider-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+        <label style="font-weight: 700; font-size: 14px; color: var(--text);">Agent Persona</label>
+        <p style="font-size: 12px; color: var(--text-muted); margin: 0 0 8px 0;">Identity sent with every request. Use Googlebot/Bingbot to see what search engines are served (cloaking checks).</p>
+        
+        <input type="hidden" id="crawler-user-agent" value="" />
+        
+        <style>
+          .ua-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 10px; width: 100%; }
+          .ua-card { 
+            background: var(--surface2); border: 2px solid transparent; border-radius: 12px; padding: 16px 8px; 
+            text-align: center; cursor: pointer; transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            position: relative; overflow: hidden;
+          }
+          .ua-card::before {
+            content: ''; position: absolute; inset: 0; background: linear-gradient(135deg, rgba(99,102,241,0.1) 0%, transparent 100%); opacity: 0; transition: opacity 0.2s;
+          }
+          .ua-card:hover { border-color: rgba(99,102,241,0.4); transform: translateY(-4px); box-shadow: 0 8px 16px rgba(99,102,241,0.15); }
+          .ua-card.active { border-color: var(--accent); background: #eef2ff; transform: translateY(-2px); box-shadow: 0 6px 20px rgba(99,102,241,0.25); }
+          .dark-theme .ua-card.active { background: rgba(99,102,241,0.15); }
+          .ua-card.active::before { opacity: 1; }
+          .ua-icon { font-size: 28px; z-index: 1; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1)); transition: transform 0.2s; }
+          .ua-card:hover .ua-icon { transform: scale(1.15) rotate(5deg); }
+          .ua-label { font-size: 11px; font-weight: 700; color: var(--text); z-index: 1; pointer-events: none; line-height: 1.2; }
+          .ua-badge { position: absolute; top: -10px; right: -10px; background: linear-gradient(90deg, #6366f1, #a855f7); color: white; font-size: 9px; padding: 2px 6px; border-radius: 10px; font-weight: 800; opacity: 0; transform: scale(0); transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); z-index: 2; box-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+          .ua-card.active .ua-badge { opacity: 1; transform: scale(1); top: 6px; right: 6px; }
+          #crawler-user-agent-custom-wrapper { 
+            width: 100%; margin-top: 10px; border-radius: 10px; padding: 2px;
+            background: linear-gradient(90deg, #6366f1, #a855f7, #ec4899);
+            display: none; animation: slideDown 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            box-shadow: 0 8px 20px rgba(168, 85, 247, 0.2);
+          }
+          @keyframes slideDown { 0% { opacity: 0; transform: translateY(-15px) scale(0.98); } 100% { opacity: 1; transform: translateY(0) scale(1); } }
+        </style>
+
+        <div class="ua-grid" id="ua-grid-container">
+          <div class="ua-card active" data-val="" onclick="selectUaCard(this)">
+            <div class="ua-badge">ACTIVE</div>
+            <div class="ua-icon">🌐</div>
+            <div class="ua-label">Chrome (PC)</div>
+          </div>
+          <div class="ua-card" data-val="chrome-mobile" onclick="selectUaCard(this)">
+            <div class="ua-badge">ACTIVE</div>
+            <div class="ua-icon">📱</div>
+            <div class="ua-label">Chrome (Mob)</div>
+          </div>
+          <div class="ua-card" data-val="googlebot" onclick="selectUaCard(this)">
+            <div class="ua-badge">ACTIVE</div>
+            <div class="ua-icon">🤖</div>
+            <div class="ua-label">Googlebot</div>
+          </div>
+          <div class="ua-card" data-val="googlebot-mobile" onclick="selectUaCard(this)">
+            <div class="ua-badge">ACTIVE</div>
+            <div class="ua-icon">📲</div>
+            <div class="ua-label">Googlebot (Mob)</div>
+          </div>
+          <div class="ua-card" data-val="bingbot" onclick="selectUaCard(this)">
+            <div class="ua-badge">ACTIVE</div>
+            <div class="ua-icon">🔎</div>
+            <div class="ua-label">Bingbot</div>
+          </div>
+          <div class="ua-card" data-val="__custom" onclick="selectUaCard(this)">
+            <div class="ua-badge">ACTIVE</div>
+            <div class="ua-icon">⚙️</div>
+            <div class="ua-label">Custom...</div>
+          </div>
+        </div>
+
+        <div id="crawler-user-agent-custom-wrapper">
+          <input type="text" id="crawler-user-agent-custom" placeholder="Paste your custom user-agent string here..."
+                 style="width:100%; padding: 14px; border: none; border-radius: 8px; font-family: monospace; font-size: 13px; font-weight: 600; outline: none; background: var(--surface); color: var(--text);" />
+        </div>
+
+        <script>
+          function selectUaCard(el) {
+            document.querySelectorAll('.ua-card').forEach(c => c.classList.remove('active'));
+            el.classList.add('active');
+            const val = el.getAttribute('data-val');
+            document.getElementById('crawler-user-agent').value = val;
+            
+            const customWrap = document.getElementById('crawler-user-agent-custom-wrapper');
+            const customInput = document.getElementById('crawler-user-agent-custom');
+            if (val === '__custom') {
+              customWrap.style.display = 'block';
+              customInput.focus();
+            } else {
+              customWrap.style.display = 'none';
+            }
+            
+            // To ensure existing JS callbacks work if any
+            if(window._scToggleCustomUa) {
+              window._scToggleCustomUa(val);
+            }
+          }
+        </script>
       </div>
 
       <label class="check"><input type="checkbox" id="crawler-render-js" onchange="_scToggleCompareNoJs(this.checked)" /> Render JS (Playwright, slower)</label>
