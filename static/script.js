@@ -697,6 +697,7 @@ function startCrawl(opts) {
   // Mirror to the new topbar buttons (global, not per-view).
   { const _t = document.getElementById('topbar-export-sitemap'); if (_t) _t.style.display = 'none'; }
   { const _t = document.getElementById('topbar-export-xlsx'); if (_t) _t.style.display = 'none'; }
+  { const _t = document.getElementById('topbar-export-csv'); if (_t) _t.style.display = 'none'; }
   { const _vBtn = document.getElementById('crawler-export-view-btn'); if (_vBtn) _vBtn.style.display = 'none'; }
   if (!resumeFromId) {
     document.getElementById('crawler-tbody').innerHTML = '';
@@ -3432,30 +3433,7 @@ function updateCounts() {
       let totalScore = 0;
       
       for (const page of crawlerResults) {
-        let pageScore = 100;
-        let isFatal = false;
-        const issues = page.issues || [];
-        
-        issues.forEach(iss => {
-          const l = iss.toLowerCase();
-          // Google Lighthouse style weighting
-          if (/search engines blocked|^http [45]/.test(l)) isFatal = true; // Not indexed
-          else if (/missing title/.test(l)) pageScore -= 20;
-          else if (/missing viewport/.test(l)) pageScore -= 15;
-          else if (/missing meta description/.test(l)) pageScore -= 10;
-          else if (/missing canonical/.test(l)) pageScore -= 10;
-          else if (/imgs missing alt|images missing alt/.test(l)) pageScore -= 10;
-          else if (/served over http|^mixed content/.test(l)) pageScore -= 10;
-          else if (/thin content/.test(l)) pageScore -= 10;
-          else {
-            const s = sev(iss);
-            if (s === 'error') pageScore -= 10;
-            else if (s === 'warn') pageScore -= 3;
-          }
-        });
-
-        if (isFatal) pageScore = 0;
-        totalScore += Math.max(0, pageScore);
+        totalScore += _scComputePageSeoScore(page);
       }
       
       let score = Math.round(totalScore / crawlerResults.length);
@@ -3599,6 +3577,37 @@ function stopCrawl() {
 // __all_h1s/__all_canonicals/__redir_chains/__orphans/__response_codes) are
 // not handled — the dispatcher falls through to the page-level summary.
 
+function _scComputePageSeoScore(page) {
+  if (!page) return 0;
+  let pageScore = 100;
+  let isFatal = false;
+  const issues = page.issues || [];
+  const _sev = (i) => {
+    const l = (i || '').toLowerCase();
+    if (/^missing (title|h1|canonical|meta description)|^http [45]|served over http|^mixed content|^ai crawlers blocked|^search engines blocked/.test(l)) return 'error';
+    if (/too (long|short)|imgs missing alt|imgs with empty alt|images missing alt|thin content|multiple h1|h1 same as title|h1 identical|missing viewport|no schema|missing open graph|missing og:image|^slow |^url:|trailing slash|^redirect \(|www normalization|http→https/.test(l)) return 'warn';
+    return 'info';
+  };
+  issues.forEach(iss => {
+    const l = iss.toLowerCase();
+    if (/search engines blocked|^http [45]/.test(l)) isFatal = true;
+    else if (/missing title/.test(l)) pageScore -= 20;
+    else if (/missing viewport/.test(l)) pageScore -= 15;
+    else if (/missing meta description/.test(l)) pageScore -= 10;
+    else if (/missing canonical/.test(l)) pageScore -= 10;
+    else if (/imgs missing alt|images missing alt/.test(l)) pageScore -= 10;
+    else if (/served over http|^mixed content/.test(l)) pageScore -= 10;
+    else if (/thin content/.test(l)) pageScore -= 10;
+    else {
+      const s = _sev(iss);
+      if (s === 'error') pageScore -= 10;
+      else if (s === 'warn') pageScore -= 3;
+    }
+  });
+  if (isFatal) pageScore = 0;
+  return Math.max(0, pageScore);
+}
+
 function _scCsvCell(v) {
   const s = (v === undefined || v === null) ? '' : String(v);
   return '"' + s.replace(/"/g, '""') + '"';
@@ -3609,6 +3618,42 @@ function _scExportFilename(prefix, domain, ext) {
   const today = new Date();
   const ts = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}-${String(today.getDate()).padStart(2,'0')}-${String(today.getHours()).padStart(2,'0')}${String(today.getMinutes()).padStart(2,'0')}`;
   return [prefix, safeDomain, ts].filter(Boolean).join('-') + '.' + ext;
+}
+
+async function exportCrawlerCsv() {
+  if (!crawlerResults.length) return;
+  const btn = document.getElementById('topbar-export-csv');
+  const lbl = btn ? btn.querySelector('span') : null;
+  const orig = lbl ? lbl.textContent : '';
+  if (btn) { btn.disabled = true; if (lbl) lbl.textContent = 'Exporting…'; }
+  try {
+    const header = ['URL', 'Status Code', 'SEO Issues', 'Page SEO Score (/100)'];
+    const rows = crawlerResults.map(r => {
+      const issues = (r.issues || []).join('; ');
+      const score = _scComputePageSeoScore(r);
+      return [
+        r.url || '',
+        r.status_code || 0,
+        issues,
+        score
+      ];
+    });
+    const csv = [header, ...rows].map(r => r.map(_scCsvCell).join(',')).join('\r\n');
+    const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    let domain = '';
+    try { domain = new URL(crawlerResults[0].url).hostname.replace(/^www\./, ''); } catch {}
+    a.download = _scExportFilename('crawl', domain, 'csv');
+    a.click();
+    URL.revokeObjectURL(a.href);
+    try { showToast(`Exported ${rows.length} page${rows.length===1?'':'s'} to CSV`, 'success'); } catch {}
+  } catch (e) {
+    console.error('[exportCrawlerCsv]', e);
+    try { showToast('CSV export failed', 'error'); } catch {}
+  } finally {
+    if (btn) { btn.disabled = false; if (lbl) lbl.textContent = orig || '.csv'; }
+  }
 }
 
 function _buildExportForCategory(cat) {
@@ -4056,6 +4101,8 @@ function crawlFinished() {
     if (_t1) _t1.style.display = 'inline-flex';
     const _t2 = document.getElementById('topbar-export-xlsx');
     if (_t2) _t2.style.display = 'inline-flex';
+    const _t3 = document.getElementById('topbar-export-csv');
+    if (_t3) _t3.style.display = 'inline-flex';
   }
   // Sitemap analysis is opt-in via the 'Sitemap analysis' checkbox.
   if (Array.isArray(crawlerResults) && crawlerResults.length) {
@@ -4794,6 +4841,7 @@ function loadSavedCrawl(file) {
       { const _xBtn = document.getElementById('crawler-export-xlsx-btn'); if (_xBtn && crawlerResults.length) _xBtn.style.display = 'inline-flex'; }
       { const _t = document.getElementById('topbar-export-sitemap'); if (_t && crawlerResults.length) _t.style.display = 'inline-flex'; }
       { const _t = document.getElementById('topbar-export-xlsx'); if (_t && crawlerResults.length) _t.style.display = 'inline-flex'; }
+      { const _t = document.getElementById('topbar-export-csv'); if (_t && crawlerResults.length) _t.style.display = 'inline-flex'; }
       if (typeof updateCounts === 'function') updateCounts();
       // Default to Summary on load so users see what needs fixing
       // immediately, not an opaque 500-row table.
