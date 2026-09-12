@@ -924,6 +924,31 @@ def crawl_continue():
     return jsonify({'ok': True, 'max_pages': state.get('max_pages'), 'finalize': state.get('finalize'), 'bumps': state.get('bumps')})
 
 
+@crawler_bp.route('/perf/lighthouse', methods=['POST'])
+def perf_lighthouse():
+    """On-demand Google PageSpeed Insights (Lighthouse) run for one URL.
+
+    Body: {url, strategy: 'mobile'|'desktop', key?: <api key>}
+    Returns LCP / CLS / FCP / TBT / Speed Index + the official 0-100
+    performance score. Opt-in per URL because each run costs Google quota
+    and takes ~30s (the crawler's own Performance tab covers the site-wide
+    pass with estimated metrics; this gives the real lab numbers).
+    """
+    from .performance import run_pagespeed
+    payload = request.get_json(silent=True) or {}
+    url = (payload.get('url') or '').strip()
+    if not url:
+        return jsonify({'ok': False, 'error': 'url is required'}), 400
+    if not url.lower().startswith(('http://', 'https://')):
+        url = 'https://' + url
+    strategy = payload.get('strategy') or 'mobile'
+    if strategy not in ('mobile', 'desktop'):
+        strategy = 'mobile'
+    api_key = (payload.get('key') or '').strip() or os.environ.get('PAGESPEED_API_KEY', '')
+    result = run_pagespeed(url, api_key=api_key, strategy=strategy)
+    return jsonify(result)
+
+
 @crawler_bp.route('/crawl', methods=['POST'])
 def crawl_site_route():
     return crawl_site()

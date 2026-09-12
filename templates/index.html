@@ -578,6 +578,12 @@ input[type="range"]::-webkit-slider-thumb:hover {
       <div class="ci-cat" data-cat="Mixed content" onclick="selectCategory('Mixed content')"><span>Mixed Content</span><span class="ci-count err" data-count="Mixed content">0</span></div>
       <div class="ci-cat" data-cat="URL:" onclick="selectCategory('URL:')"><span>URL Hygiene</span><span class="ci-count warn" data-count="URL:">0</span></div>
 
+      <div class="cat-label">Performance</div>
+      <div class="ci-cat" data-cat="__perf" onclick="selectCategory('__perf')" title="Load time, document weight, TTFB and estimated perf score for every crawled page"><span title="Site-wide performance report">Performance</span><span class="ci-count" data-count="__perf">—</span></div>
+      <div class="ci-cat" data-cat="__perf_slow" onclick="selectCategory('__perf_slow')" title="Pages whose total fetch+render time exceeds 3 seconds"><span title="Pages loading slower than 3 seconds">Slow Pages (&gt;3s)</span><span class="ci-count warn" data-count="__perf_slow">0</span></div>
+      <div class="ci-cat" data-cat="__perf_heavy" onclick="selectCategory('__perf_heavy')" title="Pages with unusually large HTML documents, inlined base64 images or excessive DOM size"><span title="Heavy resources — large HTML / DOM / base64">Heavy Resources</span><span class="ci-count warn" data-count="__perf_heavy">0</span></div>
+      <div class="ci-cat" data-cat="__perf_blocking" onclick="selectCategory('__perf_blocking')" title="Pages with render-blocking scripts or stylesheets, images missing dimensions, or too many third-party scripts"><span title="Render-blocking & third-party bloat">Render Blockers</span><span class="ci-count warn" data-count="__perf_blocking">0</span></div>
+
       <div class="cat-label">Sitemap analysis</div>
       <div id="sitemap-status" class="sitemap-status" style="display:none;"></div>
       <div class="ci-cat" data-cat="__sm_missing"    onclick="selectCategory('__sm_missing')"    id="sm-cat-missing"    style="display:none;"><span title="Indexable, 200, crawled — but missing from sitemap">Missing from sitemap</span><span class="ci-count err" data-count="__sm_missing">0</span></div>

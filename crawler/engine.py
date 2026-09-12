@@ -6,6 +6,7 @@ import requests
 from bs4 import BeautifulSoup
 from .utils import *
 from .seo_analyzer import *
+from .performance import analyze_performance, run_pagespeed  # noqa: F401 (re-exported for routes)
 
 from flask import request, stream_with_context, jsonify, current_app, Response
 def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, capture_no_js=False, challenge_browser=None):
@@ -36,6 +37,7 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
         'body_hash': '', 'security': {}, 'mixed_content': [],
         'url_issues': [], 'hreflang': [], 'x_robots_tag': '',
         'og_tags': {}, 'twitter_tags': {}, 'analytics': [],
+        'perf': None,
     }
 
     try:
@@ -48,6 +50,10 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
         ssl_bypassed = False
         challenge_html = None
         challenge_status = None
+        # Wall-clock start for the Performance module's fetch time. Measures
+        # the REAL cost of getting this page (including retries/backoff), not
+        # just the last request's elapsed time.
+        _fetch_t0 = time.perf_counter()
         for attempt in range(3):  # 1 primary + 2 retries
             try:
                 resp = session.get(url, timeout=15, allow_redirects=True)
@@ -997,6 +1003,16 @@ def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, captur
                     result['issues'].append(f'JS-only content (high: {fields})')
             except Exception as e:
                 result.setdefault('render_errors', []).append(f'no-js diff: {str(e)[:160]}')
+
+        # --- Performance / page-speed audit (best-effort, never fatal) ---
+        # Runs on every successfully fetched HTML page. Uses the wall clock
+        # from the very start of the fetch (incl. retries) through all parsing
+        # — the honest "time taken to fetch and render this URL".
+        try:
+            analyze_performance(result, soup, raw_html, resp,
+                                fetch_wall_s=time.perf_counter() - _fetch_t0)
+        except Exception as e:
+            result.setdefault('render_errors', []).append(f'perf: {str(e)[:120]}')
 
     except requests.exceptions.Timeout:
         result['error'] = 'Timeout'

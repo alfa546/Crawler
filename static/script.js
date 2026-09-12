@@ -1078,7 +1078,7 @@ function matchesCategory(page, cat) {
   const sev = (i) => {
     const l = i.toLowerCase();
     if (/^missing (title|h1|canonical|meta description)|^http [45]|served over http|^mixed content|^ai crawlers blocked|^search engines blocked/.test(l)) return 'error';
-    if (/too (long|short)|imgs missing alt|imgs with empty alt|images missing alt|thin content|multiple h1|h1 same as title|h1 identical|missing viewport|no schema|missing open graph|missing og:image|^slow |^url:|trailing slash|^redirect \(|www normalization|http→https/.test(l)) return 'warn';
+    if (/too (long|short)|imgs missing alt|imgs with empty alt|images missing alt|thin content|multiple h1|h1 same as title|h1 identical|missing viewport|no schema|missing open graph|missing og:image|^slow |^url:|trailing slash|^redirect \(|www normalization|http→https|slow load|heavy html|render-blocking|missing dimensions|large dom|base64|many third-party|high ttfb/.test(l)) return 'warn';
     return 'info';
   };
   // Severity filters are inclusive: a page with any issue at that severity
@@ -1092,6 +1092,16 @@ function matchesCategory(page, cat) {
   if (cat === 'Redirect') return !!page.redirect_url;
   if (cat === 'noindex') return issues.some(i => i.toLowerCase() === 'noindex' || i.toLowerCase().startsWith('page set to noindex'));
   if (cat === 'Canonicalised') return issues.some(i => i.toLowerCase().startsWith('canonicalised'));
+  // Performance tabs — driven by r.perf, not issue strings, so old saved
+  // crawls without perf data simply don't match (empty table, no crash).
+  if (cat === '__perf_slow' || cat === '__perf_heavy' || cat === '__perf_blocking') {
+    const p = page.perf;
+    if (!p) return false;
+    if (cat === '__perf_slow') return (p.load_time_s || 0) > 3;
+    const msgs = (p.warnings || []).map(w => (w.msg || '').toLowerCase());
+    if (cat === '__perf_heavy') return msgs.some(m => /heavy html|large dom|base64/.test(m));
+    return msgs.some(m => /render-blocking|missing dimensions|third-party|high ttfb/.test(m));
+  }
   // "Images missing alt" is the umbrella for two backend strings:
   // "N imgs missing alt" AND "N imgs with empty alt on content imagery".
   // Summary panel groups both — the page filter has to match both, or
@@ -1147,6 +1157,10 @@ window.selectCategory = function(cat) {
     '__dup_metas':     'Duplicate Meta Descriptions — groups of pages sharing a meta description',
     '__dup_h1s':       'Duplicate H1s — groups of pages sharing an H1',
     '__dup_bodies':    'Duplicate Body Content — groups of pages with identical body hash',
+    '__perf':          'Performance — load time, document weight, TTFB and estimated perf score for every crawled page',
+    '__perf_slow':     'Slow Pages — total fetch+render time above 3 seconds',
+    '__perf_heavy':    'Heavy Resources — large HTML documents, big DOMs, inlined base64 images',
+    '__perf_blocking': 'Render Blockers — render-blocking scripts/CSS, images missing dimensions, third-party bloat',
     '__redir_chains':  'Redirect Chains (2+ hops)',
     '__traps':         'Soft 404s / Infinite URL Trap (server answers 200 for non-existent URLs)',
     '__response_codes':'Response Code Distribution',
@@ -1230,6 +1244,8 @@ window.selectCategory = function(cat) {
       _scRenderDeepPagesPanel();
     } else if (cat === '__hreflang') {
       _scRenderHreflangPanel();
+    } else if (cat === '__perf' || cat === '__perf_slow' || cat === '__perf_heavy' || cat === '__perf_blocking') {
+      _scRenderPerfPanel(cat);
     } else if (cat === '__err' || cat === '__warn' || cat === '__info') {
       _scRenderSeverityPanel(cat);
     } else if (cat === '__summary') {
@@ -1251,7 +1267,7 @@ window.selectCategory = function(cat) {
    'all-images-panel','imgs-missing-alt-panel','external-links-panel','js-diff-panel',
    'all-values-panel','duplicates-panel',
    'redir-chains-panel','traps-panel','response-codes-panel','deep-pages-panel','hreflang-panel',
-   'severity-panel','summary-panel']
+   'severity-panel','summary-panel','perf-panel']
     .forEach(id => { const el = document.getElementById(id); if (el) el.remove(); });
   if (_tableWrap) _tableWrap.style.display = '';
   if (_expandHint) _expandHint.style.display = '';
@@ -2489,6 +2505,170 @@ function _scRenderDeepPagesPanel() {
 // stacked by tier (errors → warnings → info). Each card clicks through
 // to the dedicated issue tab. Designed for users who don't know to
 // click Errors/Warnings — the summary surfaces everything at once.
+// Performance report — load time, document weight, TTFB, render-blocking
+// resources + optional on-demand Lighthouse (PageSpeed Insights) per URL.
+// Site-wide metrics come from the crawler's own HTTP fetch + HTML parse
+// (honest measurements). LCP/CLS metrics are explicitly labelled "Lighthouse"
+// because they only come from the real Google API run.
+// =============================================================================
+function _scRenderPerfPanel(cat) {
+  const main = document.querySelector('.results-panel') || document.getElementById('crawler-results');
+  if (!main) return;
+  const old = document.getElementById('perf-panel');
+  if (old) old.remove();
+  const panel = document.createElement('div');
+  panel.id = 'perf-panel';
+  panel.style.cssText = 'flex:1;overflow:auto;min-height:0;padding:18px 20px;font-size:13px;';
+
+  const pages = (crawlerResults || []).filter(r => r && r.perf);
+  const header = ({ '__perf': 'Performance report', '__perf_slow': 'Slow pages — loading slower than 3 seconds',
+    '__perf_heavy': 'Heavy resources — large HTML / DOM / base64',
+    '__perf_blocking': 'Render blockers — blocking resources & third-party bloat' }[cat] || 'Performance');
+
+  if (!pages.length) {
+    panel.innerHTML = `<div style="padding:60px 20px;text-align:center;color:var(--text-muted);">
+      <b>No performance data loaded.</b><br>
+      Run (or re-run) a crawl with the current build — perf metrics are collected on every page automatically.<br>
+      <span style="font-size:12px;">Old saved crawls don't carry perf data; re-crawling fills this tab.</span>
+    </div>`;
+    main.appendChild(panel);
+    return;
+  }
+
+  // ---- Aggregates ----
+  const loads = pages.map(r => r.perf.load_time_s || 0).sort((a, b) => a - b);
+  const ttfbs = pages.map(r => r.perf.ttfb_ms).filter(v => typeof v === 'number');
+  const kbs = pages.map(r => r.perf.html_kb || 0);
+  const avg = (a) => a.length ? a.reduce((s, v) => s + v, 0) / a.length : 0;
+  const slow = pages.filter(r => (r.perf.load_time_s || 0) > 3);
+  const heavyWarn = pages.filter(r => (r.perf.warnings || []).some(w => /heavy html|large dom|base64/i.test(w.msg || '')));
+  const blockWarn = pages.filter(r => (r.perf.warnings || []).some(w => /render-blocking|missing dimensions|third-party|high ttfb/i.test(w.msg || '')));
+  const warnCount = pages.filter(r => (r.perf.warnings || []).length).length;
+  const clean = pages.filter(r => !(r.perf.warnings || []).length).length;
+  const fmtTtfb = (v) => typeof v === 'number' ? `${v} ms` : '—';
+  const esc = (s) => String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  const f1 = (v) => (typeof v === 'number' ? (Math.round(v * 10) / 10) : 0);
+
+  const stat = (label, value, color) => `
+    <div style="flex:1;min-width:150px;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:14px 16px;">
+      <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted);margin-bottom:4px;">${label}</div>
+      <div style="font-size:24px;font-weight:700;color:${color || 'var(--text)'};font-variant-numeric:tabular-nums;line-height:1.1;">${value}</div>
+    </div>`;
+
+  // ---- Per-URL rows, sorted slowest first (filtered per view) ----
+  let rows = pages.slice();
+  if (cat === '__perf_slow') rows = slow.slice();
+  else if (cat === '__perf_heavy') rows = heavyWarn.slice();
+  else if (cat === '__perf_blocking') rows = blockWarn.slice();
+  rows.sort((a, b) => (b.perf.load_time_s || 0) - (a.perf.load_time_s || 0) || (b.perf.html_kb || 0) - (a.perf.html_kb || 0));
+  const runLh = (url, strategy) => {
+    const key = strategy + '|' + url;
+    const slot = document.getElementById('lh-' + _lhKey(url) + '-' + strategy);
+    if (window._perfLh[key] && window._perfLh[key].state === 'done') { if (slot) slot.innerHTML = window._perfLh[key].html; return; }
+    if (slot) slot.innerHTML = `<span style="color:var(--text-muted);font-size:12px;">Running Lighthouse (≈30s)…</span>`;
+    fetch('/perf/lighthouse', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url, strategy }) })
+      .then(r => r.json())
+      .then(d => {
+        if (!d.ok) {
+          if (slot) slot.innerHTML = `<span style="color:#ef4444;font-size:12px;">${esc(d.error || 'Lighthouse run failed')}</span>`;
+          return;
+        }
+        const scoreColor = d.performance >= 90 ? '#22c55e' : d.performance >= 50 ? '#f59e0b' : '#ef4444';
+        const html = `<div style="display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px;">
+          <span style="font-weight:800;font-size:14px;color:${scoreColor};">Lighthouse score ${d.performance == null ? '—' : d.performance}/100</span>
+          <span style="padding:3px 8px;border:1px solid var(--border);border-radius:5px;font-size:11.5px;">LCP ${d.lcp_ms == null ? '—' : (d.lcp_ms / 1000).toFixed(2) + 's'}</span>
+          <span style="padding:3px 8px;border:1px solid var(--border);border-radius:5px;font-size:11.5px;">CLS ${d.cls == null ? '—' : d.cls}</span>
+          <span style="padding:3px 8px;border:1px solid var(--border);border-radius:5px;font-size:11.5px;">FCP ${d.fcp_ms == null ? '—' : (d.fcp_ms / 1000).toFixed(2) + 's'}</span>
+          <span style="padding:3px 8px;border:1px solid var(--border);border-radius:5px;font-size:11.5px;">TBT ${d.tbt_ms == null ? '—' : d.tbt_ms + 'ms'}</span>
+          <span style="padding:3px 8px;border:1px solid var(--border);border-radius:5px;font-size:11.5px;">Speed Index ${d.speed_index_ms == null ? '—' : (d.speed_index_ms / 1000).toFixed(2) + 's'}</span>
+          <span style="padding:3px 8px;border:1px solid var(--border);border-radius:5px;font-size:11.5px;">TTFB ${d.ttfb_ms == null ? '—' : d.ttfb_ms + 'ms'}</span>
+        </div>`;
+        window._perfLh[key] = { state: 'done', html };
+        if (slot) slot.innerHTML = html;
+      })
+      .catch(() => { if (slot) slot.innerHTML = `<span style="color:#ef4444;font-size:12px;">Lighthouse request failed</span>`; });
+  };
+  window._scPerfRunLh = runLh;
+
+
+  window._perfLh = window._perfLh || {};
+  const _lhKey = (url) => btoa(unescape(encodeURIComponent(url))).replace(/[^a-zA-Z0-9]/g, '').slice(0, 24);
+  const sevColor = (w) => w.sev === 'error' ? '#ef4444' : w.sev === 'warn' ? '#f59e0b' : '#0ea5e9';
+  const rowHtml = (r) => {
+    const p = r.perf;
+    const lt = p.load_time_s || 0;
+    const ltColor = lt > 3 ? '#ef4444' : lt > 1.5 ? '#f59e0b' : '#22c55e';
+    const scoreColor = (p.score == null) ? 'var(--text-muted)'
+      : p.score >= 90 ? '#22c55e' : p.score >= 50 ? '#f59e0b' : '#ef4444';
+    const warns = (p.warnings || []).map(w =>
+      `<span style="display:inline-flex;align-items:center;gap:4px;margin:2px 6px 2px 0;padding:2px 7px;border-radius:4px;font-size:11px;background:var(--surface2);border:1px solid var(--border);"><span style="width:6px;height:6px;border-radius:50%;background:${sevColor(w)};"></span>${esc(w.msg)}${w.detail ? ` — <span style="color:var(--text-muted);">${esc(w.detail)}</span>` : ''}</span>`).join('');
+    const k = _lhKey(r.url);
+    const uq = esc(r.url).replace(/'/g, '%27');
+    return `<tr style="border-bottom:1px solid var(--border);">
+      <td style="padding:8px 10px;max-width:340px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+        <a href="${esc(r.url)}" target="_blank" style="color:var(--accent);">${esc(r.url)}</a>
+        ${(r.title || '') ? `<div style="color:var(--text-muted);font-size:11.5px;white-space:normal;">${esc(r.title.slice(0, 80))}</div>` : ''}
+      </td>
+      <td style="padding:8px 10px;font-weight:700;color:${ltColor};font-variant-numeric:tabular-nums;">${f1(lt)}s</td>
+      <td style="padding:8px 10px;color:var(--text-muted);font-variant-numeric:tabular-nums;">${fmtTtfb(p.ttfb_ms)}</td>
+      <td style="padding:8px 10px;font-variant-numeric:tabular-nums;${(p.html_kb || 0) > 150 ? 'color:#f59e0b;font-weight:600;' : ''}">${f1(p.html_kb)} KB</td>
+      <td style="padding:8px 10px;font-variant-numeric:tabular-nums;${p.render_blocking_scripts > 3 ? 'color:#f59e0b;font-weight:600;' : ''}">${p.render_blocking_scripts} / ${p.render_blocking_css}</td>
+      <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${p.dom_nodes}</td>
+      <td style="padding:8px 10px;font-variant-numeric:tabular-nums;${p.imgs_no_dims > 5 ? 'color:#f59e0b;' : ''}">${p.imgs_no_dims}</td>
+      <td style="padding:8px 10px;font-variant-numeric:tabular-nums;">${p.third_party_scripts}</td>
+      <td style="padding:8px 10px;font-weight:700;color:${scoreColor};">${p.score == null ? '—' : p.score}</td>
+      <td style="padding:8px 10px;max-width:280px;">
+        ${warns || '<span style="color:var(--text-muted);">Clean</span>'}
+        <div style="margin-top:4px;display:flex;gap:6px;align-items:center;">
+          <button onclick="_scPerfRunLh('${uq}','mobile')" style="background:var(--accent,#6366f1);color:#fff;border:none;border-radius:5px;padding:4px 10px;font-size:11.5px;cursor:pointer;">Lighthouse mobile</button>
+          <button onclick="_scPerfRunLh('${uq}','desktop')" style="background:transparent;color:var(--accent);border:1px solid var(--accent);border-radius:5px;padding:3px 10px;font-size:11.5px;cursor:pointer;">desktop</button>
+        </div>
+        <div id="lh-${k}-mobile"></div>
+        <div id="lh-${k}-desktop"></div>
+      </td>
+    </tr>`;
+  };
+
+  const table = `
+    <div style="overflow:auto;border:1px solid var(--border);border-radius:8px;background:var(--surface);">
+    <table style="width:100%;border-collapse:collapse;font-size:12.5px;">
+      <thead><tr style="background:var(--surface2);text-align:left;">
+        <th style="padding:10px;">URL</th><th title="Total wall-clock time to fetch + parse this page">Load time</th>
+        <th title="Server response time — Google wants under 800ms for a good LCP">TTFB</th>
+        <th title="Uncompressed HTML document weight">HTML size</th>
+        <th title="Scripts without async/defer / stylesheets in head">Blocking script / CSS</th>
+        <th title="Total DOM nodes — over 1500 is excessive">DOM nodes</th>
+        <th title="Images without width/height — CLS risk">Imgs no dims</th>
+        <th title="Off-domain scripts">3rd-party scripts</th>
+        <th title="Heuristic score from this crawl's measurements — NOT a Lighthouse score">Est. score</th>
+        <th title="Speed warnings found + on-demand real Lighthouse run">Warnings</th>
+      </tr></thead>
+      <tbody>${rows.map(rowHtml).join('') || `<tr><td colspan="10" style="padding:20px;color:var(--text-muted);">Nothing matches this view.</td></tr>`}</tbody>
+    </table></div>`;
+
+  panel.innerHTML = `
+    <div style="font-size:15px;font-weight:700;color:var(--text);margin-bottom:12px;">${header}</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:8px;">
+      ${stat('Pages with perf data', pages.length)}
+      ${stat('Slow pages (>3s)', slow.length, slow.length ? '#ef4444' : '#22c55e')}
+      ${stat('Avg load time', f1(avg(loads)) + 's', avg(loads) > 3 ? '#ef4444' : avg(loads) > 1.5 ? '#f59e0b' : '#22c55e')}
+      ${stat('Avg TTFB', fmtTtfb(Math.round(avg(ttfbs)) || null), avg(ttfbs) > 800 ? '#ef4444' : 'var(--text)')}
+      ${stat('Avg HTML size', f1(avg(kbs)) + ' KB')}
+      ${stat('Pages with warnings', warnCount, warnCount ? '#f59e0b' : '#22c55e')}
+      ${stat('Clean pages', clean, '#22c55e')}
+    </div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px 16px;margin:10px 0 16px;font-size:12px;color:var(--text-muted);line-height:1.55;">
+      <b style="color:var(--text);">How to read this:</b> Load time / TTFB / HTML size / blocking resources are measured from the crawler's own fetch of each page.
+      <b style="color:var(--text);">Est. score</b> is a heuristic from these measurements — for the real Core Web Vitals numbers (LCP, CLS), press
+      <b style="color:var(--text);">Lighthouse mobile</b> on any URL: it runs Google's PageSpeed Insights API live (~30s per URL).
+      A free API key (env <code>PAGESPEED_API_KEY</code>) removes the shared-quota rate limit.
+    </div>
+    ${table}
+  `;
+  main.appendChild(panel);
+}
+
 function _scRenderSummaryPanel() {
   const main = document.querySelector('.results-panel') || document.getElementById('crawler-results');
   if (!main) return;
@@ -3277,7 +3457,7 @@ function updateCounts() {
     // noindex / canonicalised are intentional states, not errors —
     // surfaced in their own tabs instead of polluting the Errors badge.
     if (/^missing (title|h1|canonical|meta description)|^http [45]|served over http|^mixed content|^ai crawlers blocked|^search engines blocked/.test(l)) return 'error';
-    if (/too (long|short)|imgs missing alt|imgs with empty alt|images missing alt|thin content|multiple h1|h1 same as title|h1 identical|missing viewport|no schema|missing open graph|missing og:image|^slow |^url:|trailing slash|^redirect \(|www normalization|http→https/.test(l)) return 'warn';
+    if (/too (long|short)|imgs missing alt|imgs with empty alt|images missing alt|thin content|multiple h1|h1 same as title|h1 identical|missing viewport|no schema|missing open graph|missing og:image|^slow |^url:|trailing slash|^redirect \(|www normalization|http→https|slow load|heavy html|render-blocking|missing dimensions|large dom|base64|many third-party|high ttfb/.test(l)) return 'warn';
     return 'info';
   };
   // Initialise category counts
@@ -3330,6 +3510,24 @@ function updateCounts() {
   if ('__external_links' in counts) {
     counts.__external_links = (crawlerResults || []).reduce(
       (n, r) => n + ((r.external_link_urls || []).filter(e => e && e[0]).length), 0);
+  }
+  // Performance counts. '__perf' = pages that carry perf data at all;
+  // the sub-tabs count pages matching each perf condition (mirrors the
+  // matchesCategory branch so badge numbers always equal table rows).
+  const _perf = (r) => r && r.perf;
+  if ('__perf' in counts) {
+    counts.__perf = (crawlerResults || []).filter(r => _perf(r)).length;
+  }
+  if ('__perf_slow' in counts) {
+    counts.__perf_slow = (crawlerResults || []).filter(r => _perf(r) && (r.perf.load_time_s || 0) > 3).length;
+  }
+  if ('__perf_heavy' in counts) {
+    counts.__perf_heavy = (crawlerResults || []).filter(r => _perf(r) &&
+      (r.perf.warnings || []).some(w => /heavy html|large dom|base64/i.test(w.msg || ''))).length;
+  }
+  if ('__perf_blocking' in counts) {
+    counts.__perf_blocking = (crawlerResults || []).filter(r => _perf(r) &&
+      (r.perf.warnings || []).some(w => /render-blocking|missing dimensions|third-party|high ttfb/i.test(w.msg || ''))).length;
   }
   // Bulk Reports counts. "All *" = pages with a value present (so the
   // tab badge tells you how many rows the report will have, not page count).
@@ -3585,7 +3783,7 @@ function _scComputePageSeoScore(page) {
   const _sev = (i) => {
     const l = (i || '').toLowerCase();
     if (/^missing (title|h1|canonical|meta description)|^http [45]|served over http|^mixed content|^ai crawlers blocked|^search engines blocked/.test(l)) return 'error';
-    if (/too (long|short)|imgs missing alt|imgs with empty alt|images missing alt|thin content|multiple h1|h1 same as title|h1 identical|missing viewport|no schema|missing open graph|missing og:image|^slow |^url:|trailing slash|^redirect \(|www normalization|http→https/.test(l)) return 'warn';
+    if (/too (long|short)|imgs missing alt|imgs with empty alt|images missing alt|thin content|multiple h1|h1 same as title|h1 identical|missing viewport|no schema|missing open graph|missing og:image|^slow |^url:|trailing slash|^redirect \(|www normalization|http→https|slow load|heavy html|render-blocking|missing dimensions|large dom|base64|many third-party|high ttfb/.test(l)) return 'warn';
     return 'info';
   };
   issues.forEach(iss => {
