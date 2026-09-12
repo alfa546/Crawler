@@ -20,6 +20,7 @@
     <div class="sub">Fast concurrent crawl · CMS-aware · severity-tagged issues</div>
     <nav class="sc-views">
       <button id="sc-view-crawler-btn" class="sc-view-btn active" type="button" onclick="scShowView('crawler')">Crawler</button>
+      <button id="sc-view-cwv-btn" class="sc-view-btn" type="button" onclick="openCwvScanner()" title="Core Web Vitals / PageSpeed Insights — scan any single URL with Google Lighthouse">Page Speed ⚡</button>
     </nav>
     <div id="seo-score-container" style="display:none; margin-left: auto; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; background: var(--surface2); border: 1px solid var(--border); transition: all 0.3s ease;">
       SEO Score: <span id="seo-score-value">--</span><span style="font-size: 11px; opacity: 0.7;">/100</span>
@@ -792,6 +793,29 @@ input[type="range"]::-webkit-slider-thumb:hover {
         <button type="button" onclick="closeCrawlLoader()" style="background:none;border:none;color:var(--text-muted,#64748b);cursor:pointer;font-size:22px;line-height:1;">×</button>
       </div>
       <div id="crawl-loader-body" style="flex:1;overflow:auto;min-height:0;"></div>
+    </div>
+  </div>
+
+  <!-- Core Web Vitals / PageSpeed scanner — standalone, Google PSI-style.
+       Paste any URL, get the real Lighthouse run: score gauge, LCP / CLS /
+       FCP / TBT / Speed Index cards with Google's good/needs-work/poor
+       thresholds, plus the top optimisation opportunities. -->
+  <div id="cwv-scanner-overlay" style="position:fixed;inset:0;background:rgba(15,23,42,0.6);z-index:9999;display:none;align-items:flex-start;justify-content:center;padding:50px 16px;overflow:auto;">
+    <div style="background:var(--surface,#fff);border:1px solid var(--border,#e2e8f0);border-radius:12px;width:min(860px,98vw);max-height:88vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 60px rgba(0,0,0,0.5);">
+      <div style="display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--border,#e2e8f0);background:var(--surface2,#f8fafc);">
+        <div style="font-weight:700;font-size:14px;flex:1;">⚡ Core Web Vitals / Page Speed <span style="font-weight:400;font-size:11.5px;color:var(--text-muted,#64748b);">— powered by Google Lighthouse (PageSpeed Insights API)</span></div>
+        <button type="button" onclick="closeCwvScanner()" style="background:none;border:none;color:var(--text-muted,#64748b);cursor:pointer;font-size:24px;line-height:1;">×</button>
+      </div>
+      <div style="padding:16px 18px 6px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+        <input type="url" id="cwv-url-input" placeholder="Paste any URL — e.g. https://example.com" style="flex:1;min-width:260px;padding:9px 12px;font-size:13px;border:1px solid var(--border,#e2e8f0);border-radius:8px;background:var(--surface,#fff);color:var(--text,#0f172a);" onkeydown="if(event.key==='Enter')runCwvScan()" />
+        <select id="cwv-strategy" style="padding:9px 10px;font-size:13px;border:1px solid var(--border,#e2e8f0);border-radius:8px;background:var(--surface,#fff);color:var(--text,#0f172a);cursor:pointer;">
+          <option value="mobile">Mobile</option>
+          <option value="desktop">Desktop</option>
+        </select>
+        <button type="button" id="cwv-run-btn" onclick="runCwvScan()" style="padding:9px 20px;background:var(--accent,#6366f1);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Run test</button>
+      </div>
+      <div style="padding:0 18px 4px;font-size:11px;color:var(--text-muted,#94a3b8);">Runs the same engine as Google PageSpeed Insights — one real Lighthouse audit (~30s). Results below are official lab metrics, not estimates.</div>
+      <div id="cwv-results" style="flex:1;overflow:auto;min-height:0;padding:14px 18px 18px;font-size:13px;color:var(--text,#0f172a);"></div>
     </div>
   </div>
 

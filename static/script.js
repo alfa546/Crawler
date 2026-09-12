@@ -6179,3 +6179,141 @@ function scShowView(view) {
   if (main) main.style.display = '';
   if (crawlerBtn) crawlerBtn.classList.add('active');
 }
+
+// =============================================================================
+// Core Web Vitals / PageSpeed scanner — standalone, Google PSI-style.
+// Paste any URL → POST /perf/lighthouse → real Lighthouse lab metrics with
+// Google's official good/needs-improvement/poor thresholds:
+//   LCP: good ≤2.5s · poor >4s | CLS: good ≤0.1 · poor >0.25
+//   FCP: good ≤1.8s | TBT: good ≤200ms | SI: good ≤3.4s
+// =============================================================================
+function openCwvScanner() {
+  const ov = document.getElementById('cwv-scanner-overlay');
+  if (!ov) return;
+  ov.style.display = 'flex';
+  // Pre-fill with the crawl URL if the user hasn't typed one yet.
+  const inp = document.getElementById('cwv-url-input');
+  if (inp && !inp.value) {
+    const crawlUrl = (document.getElementById('crawler-url') || {}).value || '';
+    if (crawlUrl) inp.value = crawlUrl;
+  }
+  const res = document.getElementById('cwv-results');
+  if (res && !res.innerHTML) res.innerHTML = _cwvEmptyState();
+}
+function closeCwvScanner() {
+  const ov = document.getElementById('cwv-scanner-overlay');
+  if (ov) ov.style.display = 'none';
+}
+function _cwvEmptyState() {
+  return `<div style="padding:40px 20px;text-align:center;color:var(--text-muted,#94a3b8);">
+    <div style="font-size:34px;margin-bottom:8px;">⚡</div>
+    <b style="color:var(--text,#0f172a);font-size:15px;">Core Web Vitals / Page Speed</b><br>
+    Paste a URL above and press <b>Run test</b> to get the official Google Lighthouse score —<br>
+    Performance 0–100, LCP, CLS, FCP, TBT, Speed Index, and the top fixes ranked by impact.
+  </div>`;
+}
+function _cwvMetric(name, valStr, status, threshold) {
+  const c = { good: '#22c55e', warn: '#f59e0b', poor: '#ef4444', na: '#94a3b8' }[status] || '#94a3b8';
+  const bg = { good: 'rgba(34,197,94,0.09)', warn: 'rgba(245,158,11,0.09)', poor: 'rgba(239,68,68,0.09)', na: 'transparent' }[status] || 'transparent';
+  return `<div style="flex:1;min-width:130px;background:${bg};border:1px solid var(--border,#e2e8f0);border-radius:10px;padding:14px 16px;">
+    <div style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-muted,#64748b);margin-bottom:4px;">${name}</div>
+    <div style="font-size:24px;font-weight:800;color:${c};font-variant-numeric:tabular-nums;line-height:1.1;">${valStr}</div>
+    <div style="font-size:10.5px;color:var(--text-muted,#94a3b8);margin-top:3px;">${threshold}</div>
+  </div>`;
+}
+function _cwvStatus(v, goodAt, poorAt) {
+  if (typeof v !== 'number') return 'na';
+  if (v <= goodAt) return 'good';
+  if (v > poorAt) return 'poor';
+  return 'warn';
+}
+function _cwvScoreRing(score) {
+  const c = score == null ? '#94a3b8' : score >= 90 ? '#22c55e' : score >= 50 ? '#f59e0b' : '#ef4444';
+  const pct = (score == null ? 0 : Math.max(0, Math.min(100, score)));
+  const deg = pct * 3.6;
+  return `<div style="width:130px;height:130px;border-radius:50%;background:conic-gradient(${c} ${deg}deg, var(--surface2,#f1f5f9) ${deg}deg);display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+    <div style="width:100px;height:100px;border-radius:50%;background:var(--surface,#fff);display:flex;flex-direction:column;align-items:center;justify-content:center;">
+      <div style="font-size:34px;font-weight:800;color:${c};line-height:1;">${score == null ? '—' : score}</div>
+      <div style="font-size:10px;font-weight:600;color:var(--text-muted,#94a3b8);margin-top:2px;">/ 100</div>
+    </div>
+  </div>`;
+}
+function _cwvAuditRow(a) {
+  const s = a.score;
+  const c = s == null ? '#94a3b8' : s >= 0.9 ? '#22c55e' : s >= 0.5 ? '#f59e0b' : '#ef4444';
+  const icon = s == null ? '·' : s >= 0.9 ? '✓' : '⚠';
+  return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border,#e2e8f0);border-radius:7px;background:var(--surface,#fff);">
+    <span style="color:${c};font-weight:800;width:16px;text-align:center;flex-shrink:0;">${icon}</span>
+    <span style="flex:1;min-width:0;">${a.title || a.id}</span>
+    ${a.displayValue ? `<span style="font-variant-numeric:tabular-nums;color:var(--text-muted,#64748b);font-size:12px;flex-shrink:0;">${a.displayValue}</span>` : ''}
+  </div>`;
+}
+function runCwvScan() {
+  const inp = document.getElementById('cwv-url-input');
+  const res = document.getElementById('cwv-results');
+  const btn = document.getElementById('cwv-run-btn');
+  if (!inp || !res) return;
+  const url = (inp.value || '').trim();
+  if (!url) { inp.focus(); return; }
+  const strategy = (document.getElementById('cwv-strategy') || {}).value || 'mobile';
+  btn.disabled = true; btn.textContent = 'Auditing…';
+  res.innerHTML = `<div style="padding:40px 20px;text-align:center;">
+    <div style="font-size:30px;margin-bottom:10px;">⏳</div>
+    <b style="font-size:15px;">Running Google Lighthouse…</b><br>
+    <span style="color:var(--text-muted,#94a3b8);font-size:12.5px;">Loading the page on a simulated ${strategy} device, testing every resource. This takes ~30 seconds — the same as PageSpeed Insights.</span>
+  </div>`;
+  fetch('/perf/lighthouse', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, strategy }) })
+    .then(r => r.json())
+    .then(d => {
+      btn.disabled = false; btn.textContent = 'Run test';
+      if (!d.ok) {
+        res.innerHTML = `<div style="padding:30px 20px;text-align:center;">
+          <div style="color:#ef4444;font-weight:700;font-size:15px;margin-bottom:6px;">Test failed</div>
+          <div style="color:var(--text-muted,#64748b);font-size:13px;word-break:break-word;">${String(d.error || 'Unknown error').replace(/</g, '&lt;')}</div>
+          <div style="color:var(--text-muted,#94a3b8);font-size:11.5px;margin-top:10px;">Tip: hitting rate limits? Set the <code>PAGESPEED_API_KEY</code> env var with a free key from Google Cloud — it raises the quota a lot.</div>
+        </div>`;
+        return;
+      }
+      const fcp = d.fcp_ms, lcp = d.lcp_ms, cls = d.cls, tbt = d.tbt_ms, si = d.speed_index_ms;
+      const audits = Object.entries(d.audits || {})
+        .map(([id, a]) => ({ id, ...a }))
+        .filter(a => a.score != null && a.score < 0.9)
+        .sort((a, b) => (a.score || 0) - (b.score || 0));
+      const failed = audits.length;
+      const metricCard = (label, val, status, th) => _cwvMetric(label,
+        typeof val !== 'number' ? '—' : label === 'CLS' ? String(val) : label === 'TBT' ? `${Math.round(val)} ms` : (val / 1000).toFixed(2) + ' s',
+        status, th);
+      const auditRows = audits.map(a => _cwvAuditRow(a)).join('');
+      res.innerHTML = `
+        <div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
+          ${_cwvScoreRing(d.performance)}
+          <div style="flex:1;min-width:260px;">
+            <div style="font-weight:700;font-size:14px;margin-bottom:2px;word-break:break-all;">${String(d.url).replace(/</g, '&lt;')}</div>
+            <div style="font-size:11.5px;color:var(--text-muted,#94a3b8);margin-bottom:8px;">Strategy: <b>${d.strategy}</b> · TTFB: <b>${d.ttfb_ms == null ? '—' : Math.round(d.ttfb_ms) + ' ms'}</b> · Real Lighthouse run</div>
+            <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:11px;">
+              <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;"></span>Good ≥ 90</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;"></span>Needs work 50–89</span>
+              <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#ef4444;"></span>Poor &lt; 50</span>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+          ${metricCard('FCP', fcp, _cwvStatus(fcp, 1800, 3000), 'good ≤ 1.8 s')}
+          ${metricCard('LCP', lcp, _cwvStatus(lcp, 2500, 4000), 'good ≤ 2.5 s')}
+          ${metricCard('CLS', cls, _cwvStatus(cls, 0.1, 0.25), 'good ≤ 0.1')}
+          ${metricCard('TBT', tbt, _cwvStatus(tbt, 200, 600), 'good ≤ 200 ms')}
+          ${metricCard('Speed Index', si, _cwvStatus(si, 3400, 5800), 'good ≤ 3.4 s')}
+        </div>
+        <div style="font-weight:700;font-size:13px;margin:4px 0 8px;">Optimisations ${failed ? `— ${failed} opportunit${failed === 1 ? 'y' : 'ies'} found (worst first)` : '— nothing flagged'}</div>
+        ${auditRows || `<div style="padding:12px;color:#22c55e;font-weight:600;">✓ All audited optimisations pass — nothing flagged by Lighthouse.</div>`}
+        <div style="font-size:11px;color:var(--text-muted,#94a3b8);margin-top:12px;">Scores &amp; metrics are Google's official lab values for this exact URL. Core Web Vitals field data (CrUX) represents the whole origin — the lab run shows what this page does right now.</div>`;
+    })
+    .catch(() => {
+      btn.disabled = false; btn.textContent = 'Run test';
+      res.innerHTML = `<div style="padding:30px;text-align:center;color:#ef4444;font-weight:600;">Network error — could not reach the PageSpeed API.</div>`;
+    });
+}
+window.openCwvScanner = openCwvScanner;
+window.closeCwvScanner = closeCwvScanner;
+window.runCwvScan = runCwvScan;
