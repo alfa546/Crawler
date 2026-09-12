@@ -47,8 +47,6 @@ def _http_head(url, **kwargs):
         return r
 
 
-
-
 def _robots_pattern_match(pattern, url):
     """robots.txt-style path pattern matcher (Google's spec).
 
@@ -442,7 +440,6 @@ def _nd_strip_selectors(html_or_text, selectors):
         return html_or_text
 
 
-
 def _foreign_host_warning(foreign_hosts, domain):
     if not foreign_hosts:
         return None
@@ -451,71 +448,6 @@ def _foreign_host_warning(foreign_hosts, domain):
     return (f"Excluded {total} sitemap URL(s) on a different host — {detail} — from the "
             f"orphan / coverage diff. They belong to another site, not {_bare_host(domain)}, "
             f"so they are not orphans of this crawl.")
-
-
-
-def _cb_normalise_key(k):
-    """Collapse page-builder widget-id suffixes so e-page-0b1537f and
-    e-page-1478160 both group as e-page-* (Elementor uses <name>-<hex>)."""
-    m = _re.match(r'^([a-z][a-z0-9]*-[a-z0-9]+)-[0-9a-f]{6,}$', k)
-    return (m.group(1) + '-*') if m else k
-
-
-def _cb_classify(norm_key):
-    base = norm_key[:-1] if norm_key.endswith('-*') else norm_key  # e-page-* -> e-page-
-    for matcher, typ, why in _CB_PARAM_RULES:
-        try:
-            if matcher(base) or matcher(norm_key):
-                return typ, why
-        except Exception:
-            continue
-    return None, None
-
-
-def _cb_fetch_sitemap_urls(base_url, ua):
-    """Self-contained sitemap fetch (handles sitemap index + robots Sitemap:)."""
-    import html as _html2
-    urls, seen = [], set()
-
-    def parse(sm, depth=0):
-        if depth > 5 or sm in seen:
-            return
-        seen.add(sm)
-        try:
-            r = requests.get(sm, headers=ua, timeout=15)
-            if r.status_code != 200:
-                return
-            c = r.text
-            if '<sitemapindex' in c:
-                for m in _re.findall(r'<loc>\s*(.*?)\s*</loc>', c):
-                    parse(_html2.unescape(m.strip()), depth + 1)
-            else:
-                for m in _re.findall(r'<loc>\s*(.*?)\s*</loc>', c):
-                    u = _html2.unescape(m.strip())
-                    if u:
-                        urls.append(u)
-        except Exception:
-            pass
-
-    hp = base_url.rstrip('/')
-    robots_sitemaps = []
-    try:
-        r = requests.get(hp + '/robots.txt', headers=ua, timeout=10)
-        if r.status_code == 200:
-            for line in r.text.splitlines():
-                if line.strip().lower().startswith('sitemap:'):
-                    robots_sitemaps.append(line.split(':', 1)[1].strip())
-    except Exception:
-        pass
-    for sm in robots_sitemaps:
-        parse(sm)
-    if not urls:
-        parse(hp + '/sitemap_index.xml')
-    if not urls:
-        parse(hp + '/sitemap.xml')
-    if not urls:
-        parse(hp + '/wp-sitemap.xml')
-    return urls
 
 
 def _teardown_pw(pw_page, pw_browser, pw_ctx):
@@ -710,8 +642,6 @@ def _find_crawl_path(fn):
     return None
 
 
-
-
 __all__ = [name for name in dir() if not name.startswith('__') and name not in ['requests', 're', 'os', 'BeautifulSoup', 'urlparse', 'urljoin', 'urlunparse', 'parse_qs', 'urlencode', 'PROXY_MGR', 'ProxyManager']]
 
 _NON_HTML_EXTS = (
@@ -754,16 +684,6 @@ _AI_TRAINING_UAS = [
 
 _SEARCH_ENGINE_UAS = ['Googlebot', 'Bingbot', 'Slurp', 'DuckDuckBot', 'Baiduspider', 'YandexBot']
 
-_CB_PARAM_RULES = [
-    (lambda k: k.startswith('e-page-'),            'pagination', 'Elementor Pro Posts/Loop AJAX pagination'),
-    (lambda k: k.startswith('e-filter-'),          'faceting',   'Elementor Pro taxonomy filter'),
-    (lambda k: k in ('page', 'paged', 'pg', 'pagenum', 'start', 'offset'), 'pagination', 'Pagination parameter'),
-    (lambda k: k in ('orderby', 'order', 'sort', 'sort_by', 'sortby'),     'sort',       'Result sorting — duplicate views of the same set'),
-    (lambda k: k in ('filter', 'filters', 'filter_by') or k.startswith('filter_') or k.endswith('_filter') or k.startswith('pa_') or k in ('color', 'colour', 'size', 'brand', 'min_price', 'max_price', 'swoof', 'jsf'), 'faceting', 'Faceted navigation filter'),
-    (lambda k: k.startswith('utm_') or k in ('gclid', 'fbclid', 'msclkid', 'mc_cid', 'mc_eid', 'yclid'), 'tracking', 'Campaign / click tracking tag'),
-    (lambda k: k in ('replytocom', 'phpsessid', 'sessionid', 'sid', 'jsessionid'), 'session', 'Session / comment-reply parameter'),
-    (lambda k: k in ('s', 'q', 'search', 'query', 'keyword'), 'search', 'Internal site-search query'),
-]
 
 _CRAWL_NOISE_PARAMS = frozenset({
     # Tracking
@@ -794,6 +714,6 @@ _SITEMAP_DEFAULT_PATHS = (
 _SITEMAP_NS = '{http://www.sitemaps.org/schemas/sitemap/0.9}'
 
 for _name in ('_AI_CRAWLER_UAS', '_AI_TRAINING_UAS', '_SEARCH_ENGINE_UAS',
-              '_CB_PARAM_RULES', '_CRAWL_NOISE_PARAMS', '_MAILTO_NO_SCHEME_RE',
+              '_CRAWL_NOISE_PARAMS', '_MAILTO_NO_SCHEME_RE',
               '_HREF_SCHEME_RE', '_SITEMAP_DEFAULT_PATHS', '_SITEMAP_NS'):
     __all__.append(_name)

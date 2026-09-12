@@ -22,18 +22,6 @@ _ND_STOP = {
     'us', 'me', 'them', 'who', 'what', 'where', 'when', 'why', 'how',
 }
 
-@crawler_bp.route('/crawl-budget/analyze', methods=['POST'])
-def crawl_budget_analyze():
-    """On-demand crawl-budget scan for the Crawl Budget view."""
-    data = request.get_json(silent=True) or {}
-    url = (data.get('url') or '').strip()
-    if not url:
-        return jsonify({'error': 'URL is required'}), 400
-    try:
-        return jsonify(_analyze_crawl_budget(url))
-    except Exception as e:
-        return jsonify({'error': str(e)[:200]}), 500
-
 
 @crawler_bp.route('/version')
 def version():

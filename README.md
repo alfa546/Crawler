@@ -31,7 +31,6 @@
 - 📈 **Live SEO Ranking**: Track website rankings in real-time right alongside your technical audit.
 - 🔗 **Malformed Link Detection**: Prevent phantom 404s caused by plain text pasted into `href` tags.
 - 🤖 **JS vs HTML Compare**: See exactly what content is hidden from AI crawlers like GPTBot and Google-Extended.
-- 💰 **Crawl Budget Analysis**: Automatically detect infinite URL traps and generate ready-to-paste `robots.txt` rules.
 
 ## 🚀 Key Features
 

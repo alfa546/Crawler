@@ -20,7 +20,6 @@
     <div class="sub">Fast concurrent crawl · CMS-aware · severity-tagged issues</div>
     <nav class="sc-views">
       <button id="sc-view-crawler-btn" class="sc-view-btn active" type="button" onclick="scShowView('crawler')">Crawler</button>
-      <button id="sc-view-budget-btn" class="sc-view-btn" type="button" onclick="scShowView('budget')" title="Find URL patterns wasting crawl budget">Crawl Budget</button>
     </nav>
     <div id="seo-score-container" style="display:none; margin-left: auto; padding: 4px 10px; border-radius: 6px; font-weight: 600; font-size: 13px; background: var(--surface2); border: 1px solid var(--border); transition: all 0.3s ease;">
       SEO Score: <span id="seo-score-value">--</span><span style="font-size: 11px; opacity: 0.7;">/100</span>
@@ -305,63 +304,6 @@ input[type="range"]::-webkit-slider-thumb:hover {
   cursor: pointer !important;
 }
 
-/* Crawl Budget Cards Redesign */
-.cb-explainers {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 24px;
-  margin-top: 40px;
-}
-.cb-card {
-  background: var(--surface2);
-  border: 1px solid var(--border);
-  border-radius: 20px;
-  padding: 28px 24px;
-  position: relative;
-  overflow: hidden;
-  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.03);
-}
-.cb-card::before {
-  content: '';
-  position: absolute;
-  top: 0; left: 0; width: 100%; height: 5px;
-  background: linear-gradient(90deg, #6366f1, #a855f7);
-  opacity: 0;
-  transition: opacity 0.3s;
-}
-.cb-card:hover {
-  transform: translateY(-8px);
-  box-shadow: 0 16px 32px rgba(0,0,0,0.12);
-  border-color: transparent;
-}
-.cb-card:hover::before { opacity: 1; }
-.cb-card h3 {
-  font-size: 19px;
-  font-weight: 800;
-  margin-bottom: 16px;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  color: var(--text);
-}
-.cb-card p {
-  font-size: 14.5px;
-  line-height: 1.7;
-  color: var(--text-muted);
-}
-.cb-icon-wrapper {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  background: rgba(99,102,241,0.15);
-  color: var(--accent);
-  font-size: 22px;
-  box-shadow: inset 0 2px 4px rgba(255,255,255,0.1);
-}
 </style>
 
   <main class="wrap">
@@ -803,40 +745,6 @@ input[type="range"]::-webkit-slider-thumb:hover {
     </section>
   </main>
 
-  <!-- Crawl Budget view (hidden until selected from the topbar) -->
-  <section id="cb-view" class="cb-view" style="display:none;">
-    <div class="cb-inner">
-      <h1 class="cb-title">Crawl Budget</h1>
-      <p class="cb-subtitle">Find URL patterns wasting Googlebot's crawl budget — and get the robots.txt rules to stop them.</p>
-
-      <div class="cb-input-row">
-        <input type="text" id="cb-url" placeholder="example.com" />
-        <button id="cb-analyze-btn" type="button" class="cb-btn-primary">Analyze</button>
-      </div>
-      <div id="cb-status" class="cb-status"></div>
-
-      <div id="cb-results" style="display:none;">
-        <div id="cb-summary" class="cb-summary"></div>
-        <div id="cb-params"></div>
-        <div id="cb-robots" style="margin-top:18px;"></div>
-      </div>
-
-      <div class="cb-explainers">
-        <div class="cb-card">
-          <h3><div class="cb-icon-wrapper">🔍</div> What is this?</h3>
-          <p>Modern websites dynamically generate <strong>infinite URLs</strong> using query parameters (like pagination <code>?page=2</code>, filters <code>?color=blue</code>, or tracking tags). These aren't unique content, but "phantom URLs" that dilute your SEO equity. This intelligent scanner hunts down these exact patterns on your site and visualizes how much of your architecture is wasting precious index bandwidth.</p>
-        </div>
-        <div class="cb-card">
-          <h3><div class="cb-icon-wrapper">🤖</div> Why add to robots.txt?</h3>
-          <p>Writing a <code>Disallow:</code> directive acts as a hard stop sign for Search Engine spiders (like Googlebot). Instead of letting them fetch a junk URL and then figure out it's useless, the crawler skips it entirely at the source. It is the absolute <strong>most effective, server-friendly</strong> defense against parameter URL traps. <em>Note: Use Canonical tags for URLs already indexed.</em></p>
-        </div>
-        <div class="cb-card">
-          <h3><div class="cb-icon-wrapper">⚡</div> Why it helps Crawl Budget</h3>
-          <p>Google allocates a <strong>strict finite time</strong> (Crawl Budget) to scan your domain. Every second it spends crawling 30,000 auto-generated <code>?sort=price</code> pages is time it <strong>stole</strong> from discovering your newest blog posts, real products, or important updates. Shutting down these traps forces Googlebot to strictly focus its budget on URLs that actually rank and make you money!</p>
-        </div>
-      </div>
-    </div>
-  </section>
 
   <!-- Near-duplicate content side-by-side diff modal -->
   <div id="nd-diff-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.55);z-index:10000;align-items:center;justify-content:center;padding:24px;" onclick="if(event.target===this)closeNdDiff()">
