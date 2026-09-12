@@ -2,7 +2,7 @@
 
 <img src="static/logo.png" width="180" alt="Crawler Logo" />
 
-# 🚀 Crawler 
+# Crawler
 **Free, Self-Hosted SEO Crawler, Audit & Live Ranking Tool**
 
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-blue)](#installation)
