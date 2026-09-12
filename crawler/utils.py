@@ -723,3 +723,77 @@ _NON_HTML_EXTS = (
     '.woff', '.woff2', '.ttf', '.otf', '.eot',
 )
 __all__.append('_NON_HTML_EXTS')
+
+# ---- Module-level constants below (recovered from temp_app.py) ----
+# These were referenced by utils.py / engine.py / routes.py but never defined
+# in the crawler package after the temp_app.py refactor, causing
+#     NameError: name '_...' is not defined
+# mid-crawl (the "Crawl stopped at the start page" error). They are defined
+# AFTER __all__ above, so each is appended to __all__ explicitly for the
+# `from .utils import *` consumers (engine.py, routes.py).
+
+_AI_CRAWLER_UAS = [
+    'GPTBot', 'OAI-SearchBot', 'ChatGPT-User',            # OpenAI
+    'ClaudeBot', 'Claude-Web', 'Claude-SearchBot',         # Anthropic
+    'Claude-User', 'anthropic-ai',
+    'Google-Extended',                                     # Google AI / Gemini
+    'PerplexityBot', 'Perplexity-User',                    # Perplexity
+    'Amazonbot',                                           # Amazon / Alexa
+    'Meta-ExternalAgent', 'meta-externalagent',            # Meta AI
+    'MistralAI-User',                                      # Mistral / Le Chat
+    'DuckAssistBot', 'YouBot',                             # DuckDuckGo / You.com
+]
+
+_AI_TRAINING_UAS = [
+    'CCBot',                                               # Common Crawl (training corpora)
+    'Bytespider',                                          # ByteDance scraper
+    'Applebot-Extended',                                   # Apple training opt-out token
+    'cohere-ai', 'Diffbot', 'AI2Bot',
+    'Timpibot', 'ImagesiftBot', 'Omgilibot',
+]
+
+_SEARCH_ENGINE_UAS = ['Googlebot', 'Bingbot', 'Slurp', 'DuckDuckBot', 'Baiduspider', 'YandexBot']
+
+_CB_PARAM_RULES = [
+    (lambda k: k.startswith('e-page-'),            'pagination', 'Elementor Pro Posts/Loop AJAX pagination'),
+    (lambda k: k.startswith('e-filter-'),          'faceting',   'Elementor Pro taxonomy filter'),
+    (lambda k: k in ('page', 'paged', 'pg', 'pagenum', 'start', 'offset'), 'pagination', 'Pagination parameter'),
+    (lambda k: k in ('orderby', 'order', 'sort', 'sort_by', 'sortby'),     'sort',       'Result sorting — duplicate views of the same set'),
+    (lambda k: k in ('filter', 'filters', 'filter_by') or k.startswith('filter_') or k.endswith('_filter') or k.startswith('pa_') or k in ('color', 'colour', 'size', 'brand', 'min_price', 'max_price', 'swoof', 'jsf'), 'faceting', 'Faceted navigation filter'),
+    (lambda k: k.startswith('utm_') or k in ('gclid', 'fbclid', 'msclkid', 'mc_cid', 'mc_eid', 'yclid'), 'tracking', 'Campaign / click tracking tag'),
+    (lambda k: k in ('replytocom', 'phpsessid', 'sessionid', 'sid', 'jsessionid'), 'session', 'Session / comment-reply parameter'),
+    (lambda k: k in ('s', 'q', 'search', 'query', 'keyword'), 'search', 'Internal site-search query'),
+]
+
+_CRAWL_NOISE_PARAMS = frozenset({
+    # Tracking
+    'fbclid', 'gclid', 'mc_cid', 'mc_eid', 'gad_source', 'gbraid', 'wbraid',
+    'msclkid', 'yclid', 'dclid', 'igshid', 'srsltid',
+    'ref', 'ref_src', 'ref_url',
+    # WooCommerce action endpoints — not real pages.
+    'add-to-cart', 'remove_item', 'removed_item', 'undo_item',
+    'wc-ajax', 'wc-api', 'wcml_currency', 'orderby', 'product-page',
+    'min_price', 'max_price',
+    # Other common ecommerce/forum noise
+    'replytocom', 'unapproved', 'moderation-hash',
+    'share', 'sharesource',
+})
+
+_MAILTO_NO_SCHEME_RE = _re.compile(r'^[^/\s:?#]+@[^/\s:?#]+\.[A-Za-z]{2,}$')
+
+_HREF_SCHEME_RE = _re.compile(r'^[A-Za-z][A-Za-z0-9+.\-]*:')
+
+_SITEMAP_DEFAULT_PATHS = (
+    '/sitemap.xml', '/sitemap_index.xml', '/sitemap-index.xml',
+    '/wp-sitemap.xml',
+    '/sitemap.xml.gz',
+    '/sitemap1.xml', '/sitemap-1.xml',
+    '/post-sitemap.xml', '/page-sitemap.xml',
+)
+
+_SITEMAP_NS = '{http://www.sitemaps.org/schemas/sitemap/0.9}'
+
+for _name in ('_AI_CRAWLER_UAS', '_AI_TRAINING_UAS', '_SEARCH_ENGINE_UAS',
+              '_CB_PARAM_RULES', '_CRAWL_NOISE_PARAMS', '_MAILTO_NO_SCHEME_RE',
+              '_HREF_SCHEME_RE', '_SITEMAP_DEFAULT_PATHS', '_SITEMAP_NS'):
+    __all__.append(_name)

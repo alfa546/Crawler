@@ -252,6 +252,23 @@ _THIRD_PARTY_IMG_FILE_RE = _re.compile(
     _re.I,
 )
 
+# Filename heuristic for <img alt=""> triage — does the filename look like a
+# page-builder shape export (Elementor / Figma / Sketch / XD) or common UI
+# ornament rather than a content photo / screenshot / logo? Anything that does
+# NOT match is treated as likely content and surfaced for owner review.
+# (Was lost in the temp_app.py → crawler package refactor, causing
+#  NameError: name '_DECORATIVE_FILENAME_RE' is not defined.)
+_DECORATIVE_FILENAME_RE = _re.compile(
+    r'(?:'
+    r'^(?:layer|group|mask[-_]?group|path|vector|rectangle|ellipse|frame|union|subtract|clip|component|line|polygon|oval|artboard)[-_ ]?\d*'
+    r'|quotation|quote[-_]?mark'
+    r'|(?:^|[-_/])(?:bg|background|backdrop|hero[-_]?bg|pattern|texture|noise|gradient|overlay|stripe|grid|mesh)(?:[-_]|$)'
+    r'|(?:^|[-_/])(?:icon|ico|sprite|emoji|emote|bullet|chevron|caret|burger|hamburger|loader|spinner|placeholder|divider|separator|ornament|accent|swirl|squiggle|ribbon)(?:[-_]|$)'
+    r'|(?:^|[-_/])(?:star|sparkle|shape|blob|leaf|petal|circle|square|triangle)(?:[-_]|$)'
+    r')',
+    _re.I,
+)
+
 
 def _is_third_party_widget_image(abs_src):
     """Return True for images injected by third-party widgets/trackers.
@@ -522,7 +539,13 @@ def _probe_url_traps(base, results, session):
 
 
 
-__all__ = [name for name in dir() if not name.startswith('__') and name not in ['requests', 're', 'os', 'BeautifulSoup', 'urlparse', 'urljoin', 'urlunparse', 'parse_qs', 'urlencode', 'PROXY_MGR', 'ProxyManager']]
+# NOTE: __all__ is computed at the very END of this module (bottom of file).
+# It must be defined after every top-level name — computing it mid-file
+# silently excluded anything defined below it from `from . import *`
+# (engine.py / routes.py), which caused:
+#     NameError: name '_THIRD_PARTY_IMG_HOSTS' is not defined
+# Keep it last. Anything appended later must be added before this line or
+# listed explicitly at the bottom.
 
 import re as _re
 CMS_PROFILES = {
@@ -670,4 +693,13 @@ CMS_PROFILES = {
     },
 }
 
-__all__.append('CMS_PROFILES')
+# Export every public + private top-level name defined in this module.
+# Computed here (end of file) so nothing defined above is missed by
+# `from .seo_analyzer import *` in engine.py / routes.py.
+__all__ = [
+    name for name in dir()
+    if not name.startswith('__')
+    and name not in ['requests', 're', 'os', 'BeautifulSoup', 'urlparse',
+                     'urljoin', 'urlunparse', 'parse_qs', 'urlencode',
+                     'PROXY_MGR', 'ProxyManager']
+]
