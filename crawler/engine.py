@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 from .utils import *
 from .seo_analyzer import *
 
-from flask import request, stream_with_context, jsonify
+from flask import request, stream_with_context, jsonify, current_app, Response
 def _crawl_page(url, session, domain, pw_page=None, ignore_noindex=False, capture_no_js=False, challenge_browser=None):
     """Crawl a single page and return audit data dict.
 
@@ -1048,7 +1048,7 @@ def crawl_site():
         if cached and (time.time() - cached.get('created', 0)) <= SUSPENDED_CRAWL_TTL:
             resumed_state = cached
         elif cached:
-            app.logger.info(f"[crawler] resume {resume_id} expired, falling back to fresh")
+            current_app.logger.info(f"[crawler] resume {resume_id} expired, falling back to fresh")
 
     if resumed_state:
         cfg = resumed_state.get('config', {})
@@ -1198,7 +1198,7 @@ def crawl_site():
     parsed = urlparse(seed_url)
     domain = parsed.netloc.lower().replace('www.', '')
 
-    app.logger.info(f"[crawler] Starting crawl of {seed_url} (max={max_pages}, depth={max_depth}, delay={crawl_delay}s, js={render_js}) from {request.remote_addr}")
+    current_app.logger.info(f"[crawler] Starting crawl of {seed_url} (max={max_pages}, depth={max_depth}, delay={crawl_delay}s, js={render_js}) from {request.remote_addr}")
 
     def generate():
         # Fetch robots.txt up-front so the user sees what we're following.
@@ -1283,7 +1283,7 @@ def crawl_site():
                     delay=max(crawl_delay, 2.0),
                 )
             except Exception as e:
-                app.logger.warning(f"[crawler] challenge browser unavailable: {e}")
+                current_app.logger.warning(f"[crawler] challenge browser unavailable: {e}")
                 challenge_browser = None
 
         # Launch Playwright browser once per crawl if JS rendering requested
@@ -1302,7 +1302,7 @@ def crawl_site():
                 pw_page.set_default_timeout(20000)
                 yield f"data: {json.dumps({'type': 'info', 'msg': 'JS rendering enabled (Playwright). Crawl will be 3-5x slower.'})}\n\n"
             except Exception as e:
-                app.logger.warning(f"[crawler] Playwright init failed: {e}")
+                current_app.logger.warning(f"[crawler] Playwright init failed: {e}")
                 yield f"data: {json.dumps({'type': 'info', 'msg': f'JS rendering unavailable ({str(e)[:100]}); using raw HTML only.'})}\n\n"
                 pw_page = None
 
@@ -1349,7 +1349,7 @@ def crawl_site():
                 }
             yield f"data: {json.dumps({'type': 'cms_detected', **cms_info})}\n\n"
         except Exception as _cms_err:
-            app.logger.info(f"[crawler] CMS detection skipped: {_cms_err}")
+            current_app.logger.info(f"[crawler] CMS detection skipped: {_cms_err}")
 
         # Per-host politeness: minimum gap between two requests to the same host.
         # Workers on DIFFERENT hosts run freely; same-host workers serialise via this lock+timestamp map.
@@ -1457,8 +1457,8 @@ def crawl_site():
                 return url, depth
             return None
 
+        executor = ThreadPoolExecutor(max_workers=max_workers)
         try:
-            with ThreadPoolExecutor(max_workers=max_workers) as executor:
               # Outer loop lets /crawl/continue bump the page cap and resume
               # without restarting the crawl from scratch.
               while True:
@@ -1646,15 +1646,9 @@ def crawl_site():
                     'max_workers': max_workers,
                 },
             }
-            app.logger.info(f"[crawler] {crawl_id} suspended (resumable for {SUSPENDED_CRAWL_TTL//60}m): {len(results)} done, {len(queue)} queued")
-            session.close()
-            _teardown_pw(pw_page, pw_browser, pw_ctx)
-            if challenge_browser is not None:
-                challenge_browser.close()
-            ACTIVE_CRAWL_RULES.pop(crawl_id, None)
-            ACTIVE_CRAWL_LIMITS.pop(crawl_id, None)
-            return
+            current_app.logger.info(f"[crawler] {crawl_id} suspended (resumable for {SUSPENDED_CRAWL_TTL//60}m): {len(results)} done, {len(queue)} queued")
         finally:
+            executor.shutdown(wait=False)
             # The challenge browser owns an Xvfb display and a Chrome process.
             # Close it on every exit path — an unhandled error here would
             # otherwise leak both for the lifetime of the app. close() is
@@ -1853,7 +1847,7 @@ def crawl_site():
                                "(blocked by robots.txt, removed by your URL include/exclude filters, or pointing "
                                "to other domains). Adjust the filters or enable 'Ignore robots.txt' and retry.")
 
-        app.logger.info(f"[crawler] Crawl complete: {len(results)} pages, {errors} errors, {avg_time}s avg, {len(dup_titles)} dup titles, {len(orphans)} orphans" + (f" | stop_reason: {stop_reason}" if stop_reason else ""))
+        current_app.logger.info(f"[crawler] Crawl complete: {len(results)} pages, {errors} errors, {avg_time}s avg, {len(dup_titles)} dup titles, {len(orphans)} orphans" + (f" | stop_reason: {stop_reason}" if stop_reason else ""))
         yield f"data: {json.dumps({'type': 'complete', 'total': len(results), 'summary': summary, 'inlinks': inlinks_payload, 'reports': reports, 'stop_reason': stop_reason})}\n\n"
         yield "data: [DONE]\n\n"
         ACTIVE_CRAWL_RULES.pop(crawl_id, None)

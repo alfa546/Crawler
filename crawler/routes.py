@@ -1,5 +1,5 @@
 STATIC_VERSION = '2.0'
-from flask import Blueprint, render_template, request, Response, stream_with_context, jsonify, send_file
+from flask import Blueprint, render_template, request, Response, stream_with_context, jsonify, send_file, current_app
 import json, time, os, re, logging, threading
 from .utils import *
 from .seo_analyzer import *
@@ -8,7 +8,19 @@ from .engine import crawl_site
 
 from . import crawler_bp
 
-from .globals import ACTIVE_CRAWL_RULES, ACTIVE_CRAWL_LIMITS, SUSPENDED_CRAWLS, SUSPENDED_CRAWL_TTL
+from .globals import ACTIVE_CRAWL_RULES, ACTIVE_CRAWL_LIMITS, SUSPENDED_CRAWLS, SUSPENDED_CRAWL_TTL, _CRAWL_FOLDER, _CRAWL_FOLDERS_RO, _CRAWL_TITLE_HISTORY_PATH
+
+_ND_STOP = {
+    'a', 'an', 'the', 'and', 'or', 'but', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+    'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'should', 'could', 'can',
+    'to', 'of', 'in', 'on', 'at', 'by', 'for', 'with', 'about', 'as', 'into', 'through',
+    'this', 'that', 'these', 'those', 'i', 'we', 'you', 'they', 'it', 'he', 'she',
+    'our', 'your', 'their', 'its', 'his', 'her', 'my',
+    'not', 'no', 'so', 'if', 'than', 'then', 'too', 'very', 'just',
+    'over', 'under', 'before', 'after', 'between', 'from', 'up', 'down', 'out', 'off',
+    'all', 'any', 'each', 'most', 'some', 'other', 'such', 'only', 'own', 'same',
+    'us', 'me', 'them', 'who', 'what', 'where', 'when', 'why', 'how',
+}
 
 @crawler_bp.route('/crawl-budget/analyze', methods=['POST'])
 def crawl_budget_analyze():
@@ -243,6 +255,7 @@ def fetch_robots_txt():
         return jsonify({'error': str(e)[:200]}), 200
 
 
+@crawler_bp.route('/sitemap-analyse', methods=['POST'])
 def sitemap_analyse():
     """Discover the site's sitemap(s) and diff against a crawl.
 
@@ -854,7 +867,7 @@ def crawl_update_rules():
         except (TypeError, ValueError):
             return jsonify({'ok': False, 'error': 'crawl_delay must be numeric'}), 400
     ACTIVE_CRAWL_RULES[crawl_id] = current
-    app.logger.info(
+    current_app.logger.info(
         f"[crawler] {crawl_id} rules updated: "
         f"{len(current.get('exclude') or [])} exclude, "
         f"{len(current.get('include') or [])} include, "
@@ -919,7 +932,7 @@ def crawl_continue():
     ev = state.get('continue_event')
     if ev is not None:
         ev.set()
-    app.logger.info(f"[crawler] {crawl_id} {action}: max_pages={state.get('max_pages')}, bumps={state.get('bumps')}")
+    current_app.logger.info(f"[crawler] {crawl_id} {action}: max_pages={state.get('max_pages')}, bumps={state.get('bumps')}")
     return jsonify({'ok': True, 'max_pages': state.get('max_pages'), 'finalize': state.get('finalize'), 'bumps': state.get('bumps')})
 
 

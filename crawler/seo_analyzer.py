@@ -223,6 +223,36 @@ def _detect_js_platform(html):
     return None
 
 
+_THIRD_PARTY_IMG_HOSTS = (
+    'gstatic.com',
+    'googletagmanager.com',
+    'google-analytics.com',
+    'googleadservices.com',
+    'doubleclick.net',
+    'static.hotjar.com',
+    'script.hotjar.com',
+    'cdn.intercomcdn.com',
+    'js.intercomcdn.com',
+    'cdn.intercom.io',
+    'widget.crisp.chat',
+    'client.crisp.chat',
+    'static.cloudflareinsights.com',
+    'analytics.tiktok.com',
+    'connect.facebook.net',
+    'i.pinimg.com',
+    'ct.pinterest.com',
+    'hs-analytics.net',
+    'js.hs-scripts.com',
+)
+
+import re as _re
+_THIRD_PARTY_IMG_FILE_RE = _re.compile(
+    r'(?:/recaptcha[/_\-]|recaptcha[_\-](?:black|white|logo)|/g\.gif$|/pixel\.gif$|'
+    r'/spacer\.gif$|/tracking[_\-]pixel|fbq[_\-]pixel|/fb-pixel|/ga-pixel)',
+    _re.I,
+)
+
+
 def _is_third_party_widget_image(abs_src):
     """Return True for images injected by third-party widgets/trackers.
 
@@ -493,3 +523,151 @@ def _probe_url_traps(base, results, session):
 
 
 __all__ = [name for name in dir() if not name.startswith('__') and name not in ['requests', 're', 'os', 'BeautifulSoup', 'urlparse', 'urljoin', 'urlunparse', 'parse_qs', 'urlencode', 'PROXY_MGR', 'ProxyManager']]
+
+import re as _re
+CMS_PROFILES = {
+    'shopify': {
+        'label': 'Shopify',
+        'exclude_patterns': [
+            '*?variant=*', '*&variant=*',
+            '*/cart', '*/cart/*',
+            '*/account*',
+            '*/challenge',
+            '*/policies/*',
+            '*srsltid=*',
+            '*/cdn/shop/*',
+            '*/collections/*/products/*',  # duplicate products nested under collections
+        ],
+        'suggested_settings': {'render_js': False, 'max_workers': 5},
+        'schema_warnings': [
+            'OnlineStore schema without a visible physical address triggers Google validation warnings â€” prefer plain Organization.',
+            'Shopify themes often auto-emit Organization + WebSite schema; check for duplication before adding custom blocks.',
+        ],
+        'tips': [
+            'Shopify uses /search?q= â€” valid SearchAction target.',
+            'Watch for ?variant= and ?srsltid= duplicate URLs.',
+        ],
+    },
+    'wordpress': {
+        'label': 'WordPress',
+        'exclude_patterns': [
+            '*/wp-admin/*', '*/wp-json/*', '*/wp-includes/*',
+            '*/wp-content/uploads/*',
+            '*/feed/*', '*/feed', '*/?feed=*',
+            '*/author/*', '*/tag/*',
+            '*/comments/feed*', '*/trackback*',
+            '*?p=*', '*?replytocom=*', '*?unapproved=*',
+            '*/xmlrpc.php',
+        ],
+        # 1.0s delay + 3 workers = ~3 req/s, comfortably under Wordfence's default
+        # "more than 240 req/min" advanced-block threshold even at burst.
+        'suggested_settings': {'render_js': False, 'max_workers': 3, 'crawl_delay': 1.0},
+        'schema_warnings': [],
+        'tips': [
+            'WordPress on shared hosting can throttle under load â€” reduce workers to 2-3 on fragile sites.',
+            'Author, tag, and feed URLs rarely deserve indexing.',
+        ],
+    },
+    'wordpress_yoast': {
+        'label': 'WordPress + Yoast SEO',
+        'exclude_patterns': [
+            '*/wp-admin/*', '*/wp-json/*', '*/wp-includes/*',
+            '*/wp-content/uploads/*',
+            '*/feed/*', '*/feed', '*/?feed=*',
+            '*/author/*', '*/tag/*',
+            '*/comments/feed*', '*/trackback*',
+            '*?p=*', '*?replytocom=*',
+        ],
+        'suggested_settings': {'render_js': False, 'max_workers': 3, 'crawl_delay': 1.0},
+        'schema_warnings': [
+            'Yoast auto-emits an @graph with Organization, WebSite, WebPage, Article, BreadcrumbList. Do NOT duplicate these in custom schema blocks.',
+            'Yoast can also emit FAQPage if the FAQ block is used â€” audit before writing your own FAQPage.',
+        ],
+        'tips': [
+            'If you\'re adding custom schema, put it in a new @graph node with distinct @id values.',
+        ],
+    },
+    'wordpress_rankmath': {
+        'label': 'WordPress + Rank Math',
+        'exclude_patterns': [
+            '*/wp-admin/*', '*/wp-json/*', '*/wp-includes/*',
+            '*/wp-content/uploads/*',
+            '*/feed/*', '*/feed', '*/?feed=*',
+            '*/author/*', '*/tag/*',
+            '*/comments/feed*', '*/trackback*',
+            '*?p=*', '*?replytocom=*',
+        ],
+        'suggested_settings': {'render_js': False, 'max_workers': 3, 'crawl_delay': 1.0},
+        'schema_warnings': [
+            'Rank Math auto-emits Organization, WebSite, WebPage, BreadcrumbList. Check before adding custom blocks.',
+        ],
+        'tips': [],
+    },
+    'webflow': {
+        'label': 'Webflow',
+        'exclude_patterns': [],
+        'suggested_settings': {'render_js': False, 'max_workers': 5},
+        'schema_warnings': [],
+        'tips': [
+            'Webflow handles trailing slashes at the server â€” confirm redirect behaviour is consistent.',
+        ],
+    },
+    'wix': {
+        'label': 'Wix',
+        'exclude_patterns': [],
+        'suggested_settings': {'render_js': True, 'max_workers': 1},
+        'schema_warnings': [],
+        'tips': [
+            'Wix is heavily client-side rendered â€” enable Render JS or the link graph will be incomplete.',
+        ],
+    },
+    'squarespace': {
+        'label': 'Squarespace',
+        'exclude_patterns': [],
+        'suggested_settings': {'render_js': True, 'max_workers': 3},
+        'schema_warnings': [],
+        'tips': [
+            'Squarespace injects nav client-side â€” enable Render JS to discover all pages.',
+            'Meta title template is "<page title> â€” <site title>" by default.',
+        ],
+    },
+    'kajabi': {
+        'label': 'Kajabi',
+        'exclude_patterns': ['*/my-library*', '*/offers/*', '*/checkouts/*'],
+        'suggested_settings': {'render_js': False, 'max_workers': 3},
+        'schema_warnings': [],
+        'tips': [
+            'Kajabi lays out testimonials deep in the DOM â€” review word counts manually for sales pages.',
+        ],
+    },
+    'ghost': {
+        'label': 'Ghost',
+        'exclude_patterns': ['*/ghost/*', '*/rss/*', '*/amp/*'],
+        'suggested_settings': {'render_js': False, 'max_workers': 5},
+        'schema_warnings': [],
+        'tips': [],
+    },
+    'drupal': {
+        'label': 'Drupal',
+        'exclude_patterns': ['*/user/*', '*/node/add/*', '*/taxonomy/*', '*/admin/*'],
+        'suggested_settings': {'render_js': False, 'max_workers': 3},
+        'schema_warnings': [],
+        'tips': [],
+    },
+    'hubspot': {
+        'label': 'HubSpot CMS',
+        'exclude_patterns': ['*/_hcms/*', '*/hs-fs/*'],
+        'suggested_settings': {'render_js': False, 'max_workers': 5},
+        'schema_warnings': [],
+        'tips': [],
+    },
+    'joomla': {
+        'label': 'Joomla',
+        'exclude_patterns': ['*/administrator/*'],
+        'suggested_settings': {'render_js': False, 'max_workers': 3},
+        'schema_warnings': [],
+        'tips': [],
+    },
+}
+
+__all__.append('CMS_PROFILES')

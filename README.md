@@ -1,5 +1,7 @@
 <div align="center">
 
+<img src="static/logo.png" width="180" alt="Crawler Logo" />
+
 # 🚀 Crawler 
 **Free, Self-Hosted SEO Crawler, Audit & Live Ranking Tool**
 

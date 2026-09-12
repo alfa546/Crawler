@@ -1,19 +1,16 @@
 from .proxy_manager import ProxyManager
 PROXY_MGR = ProxyManager()
 import requests
-import re
+import re as _re
 from urllib.parse import urlparse, urljoin, urlunparse, parse_qs, urlencode
 import os
+from .globals import _CRAWL_FOLDER, _CRAWL_FOLDERS_RO, _CRAWL_TITLE_HISTORY_PATH
 
 def _http_get(url, **kwargs):
     proxy = PROXY_MGR.get_proxy()
     if proxy:
         kwargs['proxies'] = {'http': proxy, 'https': proxy}
-    """requests.get that transparently retries with verify=False on an SSL
-    cert-chain failure (incomplete chain / untrusted or self-signed cert).
-    Lots of sites load fine in browsers but serve a broken chain; without this,
-    robots.txt and sitemap discovery silently fail and the user sees
-    "no sitemap found". The returned Response carries .ssl_bypassed."""
+    """Wrapper for requests.get that falls back to verify=False if SSLError occurs."""
     try:
         r = requests.get(url, **kwargs)
         r.ssl_bypassed = False
@@ -26,6 +23,26 @@ def _http_get(url, **kwargs):
             pass
         kwargs['verify'] = False
         r = requests.get(url, **kwargs)
+        r.ssl_bypassed = True
+        return r
+
+def _http_head(url, **kwargs):
+    proxy = PROXY_MGR.get_proxy()
+    if proxy:
+        kwargs['proxies'] = {'http': proxy, 'https': proxy}
+    """HEAD counterpart to _http_get with the same SSL-fallback behaviour."""
+    try:
+        r = requests.head(url, **kwargs)
+        r.ssl_bypassed = False
+        return r
+    except requests.exceptions.SSLError:
+        try:
+            import urllib3
+            urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+        except Exception:
+            pass
+        kwargs['verify'] = False
+        r = requests.head(url, **kwargs)
         r.ssl_bypassed = True
         return r
 
@@ -696,3 +713,13 @@ def _find_crawl_path(fn):
 
 
 __all__ = [name for name in dir() if not name.startswith('__') and name not in ['requests', 're', 'os', 'BeautifulSoup', 'urlparse', 'urljoin', 'urlunparse', 'parse_qs', 'urlencode', 'PROXY_MGR', 'ProxyManager']]
+
+_NON_HTML_EXTS = (
+    '.jpg', '.jpeg', '.png', '.gif', '.webp', '.svg', '.ico', '.bmp', '.tiff', '.avif',
+    '.pdf', '.doc', '.docx', '.xls', '.xlsx', '.ppt', '.pptx', '.csv', '.txt', '.rtf',
+    '.zip', '.tar', '.gz', '.7z', '.rar',
+    '.mp4', '.mov', '.webm', '.m4v', '.avi', '.mkv', '.mp3', '.wav', '.ogg', '.flac',
+    '.css', '.js', '.json', '.xml', '.map',
+    '.woff', '.woff2', '.ttf', '.otf', '.eot',
+)
+__all__.append('_NON_HTML_EXTS')
