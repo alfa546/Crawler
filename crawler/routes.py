@@ -138,8 +138,8 @@ def restart_self():
         # variant silently no-op here (and `start` in a console-less context is
         # what threw the "Windows cannot find '\\'" shell error). The child
         # survives us being killed — Windows doesn't cascade-kill children.
-        CREATE_NO_WINDOW = 0x08000000
-        pyw = os.path.join(repo, 'venv', 'Scripts', 'pythonw.exe')
+        CREATE_NO_WINDOW = 0
+        pyw = os.path.join(repo, 'venv', 'Scripts', 'python.exe')
         if not os.path.exists(pyw):
             pyw = _sys.executable
         app_py = os.path.join(repo, 'app.py')
@@ -149,7 +149,7 @@ def restart_self():
             # restart-helper.ps1 kills us, waits for the port to free, then
             # starts + VERIFIES the app, retrying instead of bricking.
             cmd = ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass',
-                   '-WindowStyle', 'Hidden', '-File', helper,
+                   '-WindowStyle', 'Normal', '-File', helper,
                    '-OldPid', str(own_pid), '-Port', '5002']
         else:
             # Fallback (pre-helper checkout): inline PowerShell, still no `start`.
@@ -158,10 +158,10 @@ def restart_self():
                 "try {{ Stop-Process -Id {pid} -Force -ErrorAction SilentlyContinue }} catch {{}}; "
                 "Start-Sleep -Seconds 2; "
                 "Start-Process -FilePath '{pyw}' -ArgumentList '\"{app}\"' "
-                "-WorkingDirectory '{repo}' -WindowStyle Hidden"
+                "-WorkingDirectory '{repo}' -WindowStyle Normal"
             ).format(pid=own_pid, pyw=pyw, app=app_py, repo=repo)
             cmd = ['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass',
-                   '-WindowStyle', 'Hidden', '-Command', ps]
+                   '-WindowStyle', 'Normal', '-Command', ps]
         try:
             _sp.Popen(cmd, creationflags=CREATE_NO_WINDOW,
                       stdin=_sp.DEVNULL, stdout=_sp.DEVNULL, stderr=_sp.DEVNULL)

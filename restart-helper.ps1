@@ -28,7 +28,7 @@ if ((Test-Path $log) -and ((Get-Item $log).Length -gt 200KB)) {
     Set-Content -Path $log -Value (Get-Content $log -Tail 400) -Encoding UTF8
 }
 
-$pyw   = Join-Path $root 'venv\Scripts\pythonw.exe'
+$pyw   = Join-Path $root 'venv\Scripts\python.exe'
 $py    = Join-Path $root 'venv\Scripts\python.exe'
 $appPy = Join-Path $root 'app.py'
 if (-not (Test-Path $pyw)) { $pyw = $py }
@@ -56,7 +56,7 @@ for ($i = 0; $i -lt 20; $i++) {
 $ok = $false
 for ($attempt = 1; $attempt -le 5 -and -not $ok; $attempt++) {
     Log ("start attempt " + $attempt)
-    Start-Process -FilePath $pyw -ArgumentList ('"' + $appPy + '"') -WorkingDirectory $root -WindowStyle Hidden | Out-Null
+    Start-Process -FilePath $pyw -ArgumentList ('"' + $appPy + '"') -WorkingDirectory $root -WindowStyle Normal | Out-Null
     for ($j = 0; $j -lt 12; $j++) {
         Start-Sleep -Milliseconds 700
         try {
@@ -75,7 +75,7 @@ if ($ok) {
     Log 'all silent starts failed - launching with output capture'
     try {
         Start-Process -FilePath $py -ArgumentList ('"' + $appPy + '"') -WorkingDirectory $root `
-            -WindowStyle Hidden `
+            -WindowStyle Normal `
             -RedirectStandardError  (Join-Path $root 'restart.err.log') `
             -RedirectStandardOutput (Join-Path $root 'restart.out.log') | Out-Null
     } catch { Log ('fallback start failed: ' + $_.Exception.Message) }
