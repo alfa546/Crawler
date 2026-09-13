@@ -1,4 +1,5 @@
 import json
+import re as _re
 from io import BytesIO
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
@@ -189,7 +190,7 @@ def export_crawl_sitemap():
     domain = (data.get('domain') or '').strip()
 
     if not results:
-        return json.dumps({'error': 'No results to export'}), 400
+        return jsonify({'error': 'No results to export'}), 400
 
     def _is_indexable_200(r):
         if r.get('status_code') != 200:

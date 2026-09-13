@@ -1,10 +1,15 @@
 from .proxy_manager import ProxyManager
 PROXY_MGR = ProxyManager()
 import requests
+import json
 import re as _re
+from bs4 import BeautifulSoup
 from urllib.parse import urlparse, urljoin, urlunparse, parse_qs, urlencode
 import os
+import logging
 from .globals import _CRAWL_FOLDER, _CRAWL_FOLDERS_RO, _CRAWL_TITLE_HISTORY_PATH
+
+logger = logging.getLogger(__name__)
 
 def _http_get(url, **kwargs):
     proxy = PROXY_MGR.get_proxy()
@@ -611,7 +616,7 @@ def _append_crawl_title_history(name, saved_at, results):
             with open(_CRAWL_TITLE_HISTORY_PATH, 'a') as f:
                 f.write('\n'.join(lines) + '\n')
     except Exception as e:
-        app.logger.warning(f'[crawl-titles] failed to append title history: {e}')
+        logger.warning(f'[crawl-titles] failed to append title history: {e}')
 
 
 def _all_crawl_folders():

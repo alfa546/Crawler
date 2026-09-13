@@ -44,7 +44,7 @@ def _third_party_hosts(soup, page_domain):
     hosts = {}
     if not page_domain:
         return hosts
-    page_domain = page_domain.lower().lstrip('www.')
+    page_domain = page_domain.lower().removeprefix('www.')
     for tag in soup.find_all(['script', 'img', 'iframe', 'link']):
         src = tag.get('src')
         if not src and tag.name == 'link':
@@ -59,7 +59,7 @@ def _third_party_hosts(soup, page_domain):
             host = urlparse(src).netloc.lower()
         except Exception:
             continue
-        if not host or host.lstrip('www.') == page_domain:
+        if not host or host.removeprefix('www.') == page_domain:
             continue
         hosts[host] = hosts.get(host, 0) + 1
     return hosts

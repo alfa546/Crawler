@@ -1,4 +1,5 @@
 import re
+import json
 from bs4 import BeautifulSoup
 from urllib.parse import urlparse
 
@@ -240,10 +241,6 @@ def _parse_no_js_subset(html, base_url):
         h1s = [h for h in h1s if h]
         out['h1'] = h1s[0] if h1s else ''
         out['h1_count'] = len(h1s)
-        for s in soup(['script', 'style', 'noscript']):
-            s.decompose()
-        body_text = ' '.join(soup.get_text(separator=' ', strip=True).split())
-        out['word_count'] = len(body_text.split()) if body_text else 0
         types = []
         def _push(v):
             if isinstance(v, list):
@@ -251,6 +248,9 @@ def _parse_no_js_subset(html, base_url):
                     if isinstance(x, str): types.append(x)
             elif isinstance(v, str):
                 types.append(v)
+        # Extract JSON-LD BEFORE the script decompose below — decomposing
+        # first left schema_types permanently empty (regression found by
+        # runtime probe: soup(['script', ...]).decompose() ran first).
         for sc in soup.find_all('script', attrs={'type': 'application/ld+json'}):
             try:
                 ld = json.loads(sc.string or '')
@@ -267,6 +267,10 @@ def _parse_no_js_subset(html, base_url):
             except Exception:
                 pass
         out['schema_types'] = types
+        for s in soup(['script', 'style', 'noscript']):
+            s.decompose()
+        body_text = ' '.join(soup.get_text(separator=' ', strip=True).split())
+        out['word_count'] = len(body_text.split()) if body_text else 0
         try:
             host = (urlparse(base_url).netloc or '').lower().replace('www.', '')
         except Exception:
