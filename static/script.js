@@ -6242,13 +6242,62 @@ function _cwvAuditRow(a) {
   const s = a.score;
   const c = s == null ? '#94a3b8' : s >= 0.9 ? '#22c55e' : s >= 0.5 ? '#f59e0b' : '#ef4444';
   const icon = s == null ? '·' : s >= 0.9 ? '✓' : '⚠';
-  return `<div style="display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--border,#e2e8f0);border-radius:7px;background:var(--surface,#fff);">
-    <span style="color:${c};font-weight:800;width:16px;text-align:center;flex-shrink:0;">${icon}</span>
-    <span style="flex:1;min-width:0;">${a.title || a.id}</span>
-    ${a.displayValue ? `<span style="font-variant-numeric:tabular-nums;color:var(--text-muted,#64748b);font-size:12px;flex-shrink:0;">${a.displayValue}</span>` : ''}
+  const desc = (a.description || '').replace(/\[([^\]]+)\]\([^\)]+\)/g, '$1');
+  return `<div style="display:flex;flex-direction:column;gap:6px;padding:12px 14px;border:1px solid var(--border,#e2e8f0);border-radius:7px;background:var(--surface,#fff);">
+    <div style="display:flex;align-items:center;gap:10px;">
+      <span style="color:${c};font-weight:800;width:16px;text-align:center;flex-shrink:0;">${icon}</span>
+      <span style="flex:1;min-width:0;font-weight:600;font-size:13.5px;">${a.title || a.id}</span>
+      ${a.displayValue ? `<span style="font-variant-numeric:tabular-nums;color:var(--text-muted,#64748b);font-size:12px;flex-shrink:0;">${a.displayValue}</span>` : ''}
+    </div>
+    ${desc ? `<div style="margin-left:26px;font-size:12px;color:var(--text-muted,#64748b);line-height:1.45;">${desc}</div>` : ''}
   </div>`;
 }
-function runCwvScan() {
+function _renderCwvData(d) {
+  if (!d.ok) {
+    return `<div style="padding:30px 20px;text-align:center;">
+      <div style="color:#ef4444;font-weight:700;font-size:15px;margin-bottom:6px;">Test failed (${d.strategy || 'unknown'})</div>
+      <div style="color:var(--text-muted,#64748b);font-size:13px;word-break:break-word;">${String(d.error || 'Unknown error').replace(/</g, '&lt;')}</div>
+      <div style="color:var(--text-muted,#94a3b8);font-size:11.5px;margin-top:10px;">Tip: hitting rate limits? Set the <code>PAGESPEED_API_KEY</code> env var — it raises the quota a lot.</div>
+    </div>`;
+  }
+  const fcp = d.fcp_ms, lcp = d.lcp_ms, cls = d.cls, tbt = d.tbt_ms, si = d.speed_index_ms;
+  const audits = Object.entries(d.audits || {})
+    .map(([id, a]) => ({ id, ...a }))
+    .filter(a => a.score != null && a.score < 0.9)
+    .sort((a, b) => (a.score || 0) - (b.score || 0));
+  const failed = audits.length;
+  const metricCard = (label, val, status, th) => _cwvMetric(label,
+    typeof val !== 'number' ? '—' : label === 'CLS' ? String(val) : label === 'TBT' ? `${Math.round(val)} ms` : (val / 1000).toFixed(2) + ' s',
+    status, th);
+  const auditRows = audits.map(a => _cwvAuditRow(a)).join('');
+  return `
+    <div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
+      ${_cwvScoreRing(d.performance)}
+      <div style="flex:1;min-width:260px;">
+        <div style="font-weight:700;font-size:14px;margin-bottom:2px;word-break:break-all;">${String(d.url).replace(/</g, '&lt;')}</div>
+        <div style="font-size:11.5px;color:var(--text-muted,#94a3b8);margin-bottom:8px;">Strategy: <b>${d.strategy}</b> · TTFB: <b>${d.ttfb_ms == null ? '—' : Math.round(d.ttfb_ms) + ' ms'}</b> · Advanced Performance Audit</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:11px;">
+          <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;"></span>Good ≥ 90</span>
+          <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;"></span>Needs work 50–89</span>
+          <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#ef4444;"></span>Poor &lt; 50</span>
+        </div>
+      </div>
+    </div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
+      ${metricCard('FCP', fcp, _cwvStatus(fcp, 1800, 3000), 'good ≤ 1.8 s')}
+      ${metricCard('LCP', lcp, _cwvStatus(lcp, 2500, 4000), 'good ≤ 2.5 s')}
+      ${metricCard('CLS', cls, _cwvStatus(cls, 0.1, 0.25), 'good ≤ 0.1')}
+      ${metricCard('TBT', tbt, _cwvStatus(tbt, 200, 600), 'good ≤ 200 ms')}
+      ${metricCard('Speed Index', si, _cwvStatus(si, 3400, 5800), 'good ≤ 3.4 s')}
+    </div>
+    <div style="font-weight:700;font-size:13px;margin:4px 0 8px;">Optimisations ${failed ? `— ${failed} opportunit${failed === 1 ? 'y' : 'ies'} found (worst first)` : '— nothing flagged'}</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:12px;">
+      ${auditRows || `<div style="padding:12px;color:#22c55e;font-weight:600;">✓ All audited optimisations pass — nothing flagged by the engine.</div>`}
+    </div>
+    <div style="font-size:11px;color:var(--text-muted,#94a3b8);margin-top:12px;">Scores &amp; metrics are based on industry-standard lab values for this exact URL. The lab run shows what this page does right now in a controlled environment.</div>`;
+}
+
+async function runCwvScan() {
   const inp = document.getElementById('cwv-url-input');
   const res = document.getElementById('cwv-results');
   const btn = document.getElementById('cwv-run-btn');
@@ -6264,7 +6313,7 @@ function runCwvScan() {
     </div>
     <b style="font-size:16px;color:var(--text,#0f172a);">Analyzing Performance Metrics...</b><br>
     <div style="color:var(--text-muted,#94a3b8);font-size:13px;margin-top:10px;max-width:380px;margin-left:auto;margin-right:auto;">
-      <div id="cwv-scan-step" style="transition:opacity 0.3s ease;">Initializing deep audit on a simulated ${strategy} device...</div>
+      <div id="cwv-scan-step" style="transition:opacity 0.3s ease;">Initializing deep audit on a simulated ${strategy === 'both' ? 'mobile and desktop' : strategy} device...</div>
     </div>
     <style>@keyframes cwvSpin { to { transform: rotate(360deg); } }</style>
   </div>`;
@@ -6291,59 +6340,45 @@ function runCwvScan() {
        clearInterval(window._cwvInterval);
     }
   }, 4000);
-  fetch('/perf/lighthouse', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url, strategy }) })
-    .then(r => r.json())
-    .then(d => {
+
+  try {
+    const fetchPerf = (s) => fetch('/perf/lighthouse', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, strategy: s })
+    }).then(r => r.json());
+
+    if (strategy === 'both') {
+      const el = document.getElementById('cwv-scan-step');
+      if (el) el.textContent = "Running mobile audit (1 of 2)...";
+      const mData = await fetchPerf('mobile');
+      if (el) el.textContent = "Running desktop audit (2 of 2)...";
+      const dData = await fetchPerf('desktop');
+      
       btn.disabled = false; btn.textContent = 'Run test';
-      if (!d.ok) {
-        res.innerHTML = `<div style="padding:30px 20px;text-align:center;">
-          <div style="color:#ef4444;font-weight:700;font-size:15px;margin-bottom:6px;">Test failed</div>
-          <div style="color:var(--text-muted,#64748b);font-size:13px;word-break:break-word;">${String(d.error || 'Unknown error').replace(/</g, '&lt;')}</div>
-          <div style="color:var(--text-muted,#94a3b8);font-size:11.5px;margin-top:10px;">Tip: hitting rate limits? Set the <code>PAGESPEED_API_KEY</code> env var — it raises the quota a lot.</div>
-        </div>`;
-        return;
-      }
-      const fcp = d.fcp_ms, lcp = d.lcp_ms, cls = d.cls, tbt = d.tbt_ms, si = d.speed_index_ms;
-      const audits = Object.entries(d.audits || {})
-        .map(([id, a]) => ({ id, ...a }))
-        .filter(a => a.score != null && a.score < 0.9)
-        .sort((a, b) => (a.score || 0) - (b.score || 0));
-      const failed = audits.length;
-      const metricCard = (label, val, status, th) => _cwvMetric(label,
-        typeof val !== 'number' ? '—' : label === 'CLS' ? String(val) : label === 'TBT' ? `${Math.round(val)} ms` : (val / 1000).toFixed(2) + ' s',
-        status, th);
-      const auditRows = audits.map(a => _cwvAuditRow(a)).join('');
-      res.innerHTML = `
-        <div style="display:flex;gap:22px;align-items:center;flex-wrap:wrap;margin-bottom:16px;">
-          ${_cwvScoreRing(d.performance)}
-          <div style="flex:1;min-width:260px;">
-            <div style="font-weight:700;font-size:14px;margin-bottom:2px;word-break:break-all;">${String(d.url).replace(/</g, '&lt;')}</div>
-            <div style="font-size:11.5px;color:var(--text-muted,#94a3b8);margin-bottom:8px;">Strategy: <b>${d.strategy}</b> · TTFB: <b>${d.ttfb_ms == null ? '—' : Math.round(d.ttfb_ms) + ' ms'}</b> · Advanced Performance Audit</div>
-            <div style="display:flex;gap:6px;flex-wrap:wrap;font-size:11px;">
-              <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#22c55e;"></span>Good ≥ 90</span>
-              <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;"></span>Needs work 50–89</span>
-              <span style="display:inline-flex;align-items:center;gap:4px;"><span style="width:8px;height:8px;border-radius:50%;background:#ef4444;"></span>Poor &lt; 50</span>
-            </div>
-          </div>
-        </div>
-        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px;">
-          ${metricCard('FCP', fcp, _cwvStatus(fcp, 1800, 3000), 'good ≤ 1.8 s')}
-          ${metricCard('LCP', lcp, _cwvStatus(lcp, 2500, 4000), 'good ≤ 2.5 s')}
-          ${metricCard('CLS', cls, _cwvStatus(cls, 0.1, 0.25), 'good ≤ 0.1')}
-          ${metricCard('TBT', tbt, _cwvStatus(tbt, 200, 600), 'good ≤ 200 ms')}
-          ${metricCard('Speed Index', si, _cwvStatus(si, 3400, 5800), 'good ≤ 3.4 s')}
-        </div>
-        <div style="font-weight:700;font-size:13px;margin:4px 0 8px;">Optimisations ${failed ? `— ${failed} opportunit${failed === 1 ? 'y' : 'ies'} found (worst first)` : '— nothing flagged'}</div>
-        ${auditRows || `<div style="padding:12px;color:#22c55e;font-weight:600;">✓ All audited optimisations pass — nothing flagged by the engine.</div>`}
-        <div style="font-size:11px;color:var(--text-muted,#94a3b8);margin-top:12px;">Scores &amp; metrics are based on industry-standard lab values for this exact URL. The lab run shows what this page does right now in a controlled environment.</div>`;
       if (window._cwvInterval) clearInterval(window._cwvInterval);
-    })
-    .catch(() => {
+      
+      res.innerHTML = `<div style="display:flex;flex-direction:column;gap:40px;">
+        <div>
+          <h3 style="margin:0 0 16px;font-size:18px;color:var(--text);padding-bottom:10px;border-bottom:1px solid var(--border);">📱 Mobile Performance</h3>
+          ${_renderCwvData(mData)}
+        </div>
+        <div>
+          <h3 style="margin:0 0 16px;font-size:18px;color:var(--text);padding-bottom:10px;border-bottom:1px solid var(--border);">💻 Desktop Performance</h3>
+          ${_renderCwvData(dData)}
+        </div>
+      </div>`;
+    } else {
+      const data = await fetchPerf(strategy);
       btn.disabled = false; btn.textContent = 'Run test';
-      res.innerHTML = `<div style="padding:30px;text-align:center;color:#ef4444;font-weight:600;">Network error — could not reach the API.</div>`;
       if (window._cwvInterval) clearInterval(window._cwvInterval);
-    });
+      res.innerHTML = _renderCwvData(data);
+    }
+  } catch (err) {
+    btn.disabled = false; btn.textContent = 'Run test';
+    if (window._cwvInterval) clearInterval(window._cwvInterval);
+    res.innerHTML = `<div style="padding:30px;text-align:center;color:#ef4444;font-weight:600;">Network error — could not reach the API.</div>`;
+  }
 }
 window.openCwvScanner = openCwvScanner;
 window.closeCwvScanner = closeCwvScanner;

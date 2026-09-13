@@ -248,7 +248,8 @@ def run_pagespeed(url, api_key=None, strategy='mobile', timeout=120):
             'audits': {
                 aid: {'score': (audits.get(aid) or {}).get('score'),
                       'displayValue': (audits.get(aid) or {}).get('displayValue', ''),
-                      'title': (audits.get(aid) or {}).get('title', '')}
+                      'title': (audits.get(aid) or {}).get('title', ''),
+                      'description': (audits.get(aid) or {}).get('description', '')}
                 for aid in ('render-blocking-resources', 'uses-responsive-images',
                             'unused-css-rules', 'unused-javascript',
                             'modern-image-formats', 'offscreen-images',
