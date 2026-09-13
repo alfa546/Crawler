@@ -9,6 +9,8 @@ services:
       - ./proxies.txt:/app/proxies.txt
       # Uncomment the below line when SQLite is fully enabled to persist data
       # - ./crawler.db:/app/crawler.db
+    env_file:
+      - .env
     environment:
       - PYTHONUNBUFFERED=1
     restart: unless-stopped

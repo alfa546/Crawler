@@ -3,4 +3,7 @@ __pycache__/
 *.pyc
 .git/
 .gitignore
-*.db
+# Never bake secrets or multi-MB assets into the image
+.env
+*.log
+demo_v2.gif
