@@ -34,6 +34,11 @@ Unlike cloud-based SEO platforms, **Crawler runs 100% locally**. Your website da
 
 ## ✨ Key Features
 
+### ⚡ Built-in Web Core Vitals & PageSpeed Insights
+Check the PageSpeed Insights and Core Web Vitals for *any* website directly from the platform. **No need to verify or add the website to Google Search Console.** Easily analyze performance metrics like FCP, LCP, CLS, and TBT without any hassle.
+
+![Web Core Vitals Insights](assets/web-core-vitals.png)
+
 ### 🕸️ Powerful Crawling Engine
 - **Unlimited URLs:** Crawl 10 or 10,000+ pages concurrently without paying a cent.
 - **CMS-Aware:** Auto-detects Shopify, WordPress, Webflow, Wix, Squarespace, and more.
