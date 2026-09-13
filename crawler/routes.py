@@ -189,6 +189,11 @@ def index():
     return render_template('index.html', v=STATIC_VERSION, build_sha=_local_commit_sha())
 
 
+@crawler_bp.route('/pagespeed')
+def pagespeed():
+    return render_template('pagespeed.html', v=STATIC_VERSION)
+
+
 @crawler_bp.route('/detect-cms', methods=['POST'])
 def detect_cms_route():
     """Fetch a URL and identify the CMS. Used standalone and also at crawl start."""
