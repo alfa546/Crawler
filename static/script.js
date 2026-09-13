@@ -6206,7 +6206,7 @@ function closeCwvScanner() {
 }
 function _cwvEmptyState() {
   return `<div style="padding:40px 20px;text-align:center;color:var(--text-muted,#94a3b8);">
-    <div style="font-size:34px;margin-bottom:8px;">⚡</div>
+    <div style="font-size:34px;margin-bottom:8px;">📊</div>
     <b style="color:var(--text,#0f172a);font-size:15px;">Core Web Vitals / Page Speed</b><br>
     Paste a URL above and press <b>Run test</b> to get the official Google Lighthouse score —<br>
     Performance 0–100, LCP, CLS, FCP, TBT, Speed Index, and the top fixes ranked by impact.
