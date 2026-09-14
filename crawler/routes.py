@@ -1,6 +1,6 @@
 STATIC_VERSION = '2.0'
 from flask import Blueprint, render_template, request, Response, stream_with_context, jsonify, send_file, current_app
-import json, time, os, re, logging, threading
+import json, time, os, re, logging, threading, random, io
 from .utils import *
 from .seo_analyzer import *
 from .export_utils import *
@@ -957,3 +957,135 @@ def perf_lighthouse():
 @crawler_bp.route('/crawl', methods=['POST'])
 def crawl_site_route():
     return crawl_site()
+
+
+# ==========================================================================
+# Keyword Research & Regional Trend Intel Engine (100% free endpoints)
+# ==========================================================================
+
+_KW_JOBS = {}          # job_id -> {'status','progress','error','sheets': None|dict}
+_KW_JOBS_LOCK = threading.Lock()
+
+
+@crawler_bp.route('/keyword-research')
+def keyword_research_page():
+    return render_template('keyword_research.html', v=STATIC_VERSION)
+
+
+@crawler_bp.route('/keyword-research/run', methods=['POST'])
+def keyword_research_run():
+    """Start a pipeline run in a background thread.
+
+    Body: {seed, geo, lang, depth, max_results, serp_enabled, serp_cap,
+           trends_enabled}
+    Returns {ok, job_id} — poll /keyword-research/status?job_id=...
+    """
+    from .keyword_research import KeywordResearchPipeline
+
+    payload = request.get_json(silent=True) or {}
+    seed = (payload.get('seed') or '').strip()
+    if not seed:
+        return jsonify({'ok': False, 'error': 'A seed keyword is required.'}), 400
+
+    def _int(name, default, lo, hi):
+        try:
+            return max(lo, min(int(payload.get(name, default)), hi))
+        except (TypeError, ValueError):
+            return default
+
+    job_id = f'kw_{int(time.time() * 1000)}_{random.randrange(1000, 9999)}'
+    pipeline = KeywordResearchPipeline(
+        seed=seed,
+        geo=(payload.get('geo') or 'us').lower(),
+        lang=(payload.get('lang') or '').strip(),
+        depth=_int('depth', 1, 1, 2),
+        max_results=_int('max_results', 300, 10, 2000),
+        serp_enabled=bool(payload.get('serp_enabled', True)),
+        serp_cap=_int('serp_cap', 80, 0, 300),
+        trends_enabled=bool(payload.get('trends_enabled', True)),
+        progress_cb=lambda msg: _kw_progress(job_id, msg),
+    )
+
+    with _KW_JOBS_LOCK:
+        # Keep the registry bounded: drop oldest entries beyond 20 runs.
+        if len(_KW_JOBS) > 20:
+            for k in list(_KW_JOBS.keys())[:-20]:
+                _KW_JOBS.pop(k, None)
+        _KW_JOBS[job_id] = {'status': 'running', 'progress': 'queued',
+                            'error': None, 'sheets': None}
+
+    def _worker():
+        try:
+            sheets = pipeline.run()
+            with _KW_JOBS_LOCK:
+                _KW_JOBS[job_id] = {
+                    'status': 'done', 'progress': 'complete',
+                    'error': None,
+                    'sheets': {name: df.to_dict(orient='records')
+                               for name, df in sheets.items()},
+                }
+        except Exception as exc:
+            current_app.logger.error('[kw-research] run failed: %s', exc)
+            with _KW_JOBS_LOCK:
+                _KW_JOBS[job_id] = {'status': 'error', 'progress': '',
+                                    'error': str(exc)[:300], 'sheets': None}
+
+    threading.Thread(target=_worker, daemon=True).start()
+    return jsonify({'ok': True, 'job_id': job_id})
+
+
+def _kw_progress(job_id: str, msg: str) -> None:
+    with _KW_JOBS_LOCK:
+        job = _KW_JOBS.get(job_id)
+        if job and job['status'] == 'running':
+            job['progress'] = msg
+
+
+@crawler_bp.route('/keyword-research/status')
+def keyword_research_status():
+    job_id = (request.args.get('job_id') or '').strip()
+    with _KW_JOBS_LOCK:
+        job = _KW_JOBS.get(job_id)
+        if not job:
+            return jsonify({'ok': False, 'error': 'Unknown job id'}), 404
+        return jsonify({'ok': True, 'status': job['status'],
+                        'progress': job['progress'], 'error': job['error'],
+                        'sheets': job['sheets']})
+
+
+@crawler_bp.route('/keyword-research/export', methods=['POST'])
+def keyword_research_export():
+    """Export sheets as styled XLSX or a CSV ZIP.
+
+    Body: {format: 'xlsx'|'csv', sheets?: {Name: [records...]}, seed?, job_id?}
+    Falls back to the last completed job's sheets when ``sheets`` is omitted.
+    """
+    from .keyword_research import export_workbook_bytes, export_csv_zip_bytes
+    import pandas as pd
+
+    payload = request.get_json(silent=True) or {}
+    raw_sheets = payload.get('sheets')
+    if not raw_sheets:
+        job_id = (payload.get('job_id') or '').strip()
+        with _KW_JOBS_LOCK:
+            job = _KW_JOBS.get(job_id)
+            raw_sheets = job['sheets'] if job and job.get('sheets') else None
+    if not raw_sheets:
+        return jsonify({'ok': False, 'error': 'No sheets to export'}), 400
+
+    sheets = {name: pd.DataFrame(records)
+              for name, records in raw_sheets.items()}
+    fmt = (payload.get('format') or 'xlsx').lower()
+    seed_slug = re.sub(r'[^a-zA-Z0-9]+', '-', (payload.get('seed') or 'keywords')).strip('-')[:40]
+    ts = time.strftime('%Y-%m-%d-%H%M')
+
+    if fmt == 'csv':
+        data = export_csv_zip_bytes(sheets)
+        return send_file(io.BytesIO(data), mimetype='application/zip',
+                         as_attachment=True,
+                         download_name=f'keywords-{seed_slug}-{ts}.zip')
+    data = export_workbook_bytes(sheets)
+    return send_file(io.BytesIO(data),
+                     mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                     as_attachment=True,
+                     download_name=f'keywords-{seed_slug}-{ts}.xlsx')

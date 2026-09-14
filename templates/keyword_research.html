@@ -1,0 +1,291 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Keyword Research — Crawler</title>
+  <link rel="icon" type="image/png" href="/static/logo.png?refresh=4">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css?v={{ v }}">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <img src="/static/logo.png?refresh=4" alt="Crawler Logo">
+    <span>Crawler</span>
+  </div>
+  <div class="sub">Keyword Research · Regional Trend Intel · 100% free endpoints</div>
+  <nav class="sc-views">
+    <a href="/" class="sc-view-btn" style="text-decoration:none;">Crawler</a>
+    <a href="/pagespeed" class="sc-view-btn" style="text-decoration:none;">Page Speed</a>
+    <span class="sc-view-btn active">Keywords</span>
+  </nav>
+  <button type="button" class="theme-toggle" id="theme-toggle-btn" onclick="toggleTheme()" title="Toggle light / dark theme">
+    <svg id="theme-toggle-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+    </svg>
+    <span id="theme-toggle-label">Light</span>
+  </button>
+</header>
+<script>
+  (function() {
+    const saved = localStorage.getItem('sc_theme');
+    const sysDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    document.documentElement.setAttribute('data-theme', saved || (sysDark ? 'dark' : 'light'));
+  })();
+  function toggleTheme() {
+    const cur = document.documentElement.getAttribute('data-theme') || 'light';
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('sc_theme', next);
+    const lbl = document.getElementById('theme-toggle-label');
+    if (lbl) lbl.textContent = next === 'dark' ? 'Light' : 'Dark';
+    const icon = document.getElementById('theme-toggle-icon');
+    if (icon) icon.innerHTML = next === 'dark'
+      ? '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>'
+      : '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>';
+  }
+</script>
+
+<main style="max-width:1200px;margin:28px auto;padding:0 18px;">
+  <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:8px;">
+    <input type="text" id="kr-seed" placeholder="Seed keyword — e.g. crm software"
+      style="flex:2;min-width:240px;padding:10px 14px;font-size:13.5px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);"
+      onkeydown="if(event.key==='Enter')runKw()">
+    <select id="kr-geo" style="padding:10px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);cursor:pointer;">
+      <option value="us">🇺🇸 US</option><option value="gb">🇬🇧 UK</option>
+      <option value="ca">🇨🇦 CA</option><option value="au">🇦🇺 AU</option>
+      <option value="de">🇩🇪 DE</option><option value="fr">🇫🇷 FR</option>
+      <option value="es">🇪🇸 ES</option><option value="it">🇮🇹 IT</option>
+      <option value="nl">🇳🇱 NL</option><option value="br">🇧🇷 BR</option>
+      <option value="in">🇮🇳 IN</option><option value="jp">🇯🇵 JP</option>
+    </select>
+    <select id="kr-depth" style="padding:10px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);cursor:pointer;">
+      <option value="1">Depth 1 (fast)</option>
+      <option value="2">Depth 2 (deep)</option>
+    </select>
+    <select id="kr-max" style="padding:10px;font-size:13px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);cursor:pointer;">
+      <option value="100">100 kw</option><option value="300" selected>300 kw</option><option value="500">500 kw</option>
+    </select>
+    <label style="font-size:12px;color:var(--text);display:flex;align-items:center;gap:4px;cursor:pointer;">
+      <input type="checkbox" id="kr-serp" checked> SERP analysis</label>
+    <button type="button" id="kr-run-btn" onclick="runKw()"
+      style="padding:10px 22px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;">Run research</button>
+  </div>
+  <div style="font-size:11px;color:var(--text-muted);margin-bottom:14px;">
+    Sources: Google Autocomplete, Google Trends (pytrends), live SERP parsing — all free, no API keys.
+    <b>Volume Proxy</b> is a heuristic estimate (no free ground-truth volume exists), not a real search volume.
+    SERP analysis adds ~2–5s per probed keyword (rate-limit safe).
+  </div>
+  <div id="kr-status" style="display:none;margin-bottom:14px;padding:10px 14px;border:1px solid var(--border);border-radius:8px;background:var(--surface);font-size:12.5px;color:var(--text);"></div>
+  <div id="kr-actions" style="display:none;gap:8px;margin-bottom:14px;">
+    <button type="button" onclick="exportKw('xlsx')" style="padding:8px 16px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:12.5px;font-weight:600;cursor:pointer;">⬇ Download XLSX (4 sheets)</button>
+    <button type="button" onclick="exportKw('csv')" style="padding:8px 16px;background:var(--surface);color:var(--text);border:1px solid var(--border);border-radius:8px;font-size:12.5px;cursor:pointer;">⬇ CSV ZIP</button>
+  </div>
+  <div id="kr-results" style="font-size:13px;color:var(--text);"></div>
+</main>
+
+<script src="/static/script.js?v={{ v }}"></script>
+<script>
+let KW_STATE = {jobId: null, sheets: null, seed: ''};
+
+function _krEmpty() {
+  return '<div style="text-align:center;padding:60px 20px;color:var(--text-muted);font-size:13px;">' +
+    'Enter a seed keyword and hit <b>Run research</b> — the engine expands it into ' +
+    'hundreds of long-tails via Google Autocomplete, scores trend velocity per region, ' +
+    'and probes SERP competition, all with free endpoints.</div>';
+}
+document.addEventListener('DOMContentLoaded', function() {
+  const res = document.getElementById('kr-results');
+  if (res && !res.innerHTML) res.innerHTML = _krEmpty();
+  const cur = document.documentElement.getAttribute('data-theme') || 'light';
+  const lbl = document.getElementById('theme-toggle-label');
+  if (lbl) lbl.textContent = cur === 'dark' ? 'Light' : 'Dark';
+});
+
+async function runKw() {
+  const seed = document.getElementById('kr-seed').value.trim();
+  if (!seed) { alert('Enter a seed keyword first.'); return; }
+  const btn = document.getElementById('kr-run-btn');
+  btn.disabled = true; btn.textContent = 'Running…';
+  KW_STATE.seed = seed;
+  const status = document.getElementById('kr-status');
+  status.style.display = 'block'; status.textContent = 'Starting pipeline…';
+  document.getElementById('kr-results').innerHTML = '';
+  document.getElementById('kr-actions').style.display = 'none';
+  try {
+    const resp = await fetch('/keyword-research/run', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        seed: seed,
+        geo: document.getElementById('kr-geo').value,
+        depth: parseInt(document.getElementById('kr-depth').value, 10),
+        max_results: parseInt(document.getElementById('kr-max').value, 10),
+        serp_enabled: document.getElementById('kr-serp').checked,
+        serp_cap: 80, trends_enabled: true
+      })
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Failed to start');
+    KW_STATE.jobId = data.job_id;
+    pollKw();
+  } catch (e) {
+    status.textContent = '❌ ' + e.message;
+    btn.disabled = false; btn.textContent = 'Run research';
+  }
+}
+
+async function pollKw() {
+  const status = document.getElementById('kr-status');
+  const btn = document.getElementById('kr-run-btn');
+  try {
+    const resp = await fetch('/keyword-research/status?job_id=' + encodeURIComponent(KW_STATE.jobId));
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.error || 'Unknown job');
+    if (data.status === 'running') {
+      status.textContent = '⏳ ' + (data.progress || 'working…');
+      setTimeout(pollKw, 2500);
+      return;
+    }
+    if (data.status === 'error') {
+      status.textContent = '❌ Run failed: ' + (data.error || 'unknown error');
+    } else if (data.status === 'done') {
+      status.textContent = '✅ Complete.';
+      KW_STATE.sheets = data.sheets;
+      renderKw(data.sheets);
+      document.getElementById('kr-actions').style.display = 'flex';
+    }
+  } catch (e) {
+    status.textContent = '❌ ' + e.message;
+  }
+  btn.disabled = false; btn.textContent = 'Run research';
+}
+
+function trendArrow(v) {
+  const n = parseFloat(v) || 0;
+  if (n > 10) return '<span style="color:#16a34a;font-weight:700;">↗ +' + n.toFixed(0) + '</span>';
+  if (n < -10) return '<span style="color:#dc2626;font-weight:700;">↘ ' + n.toFixed(0) + '</span>';
+  return '<span style="color:var(--text-muted);">→ ' + n.toFixed(0) + '</span>';
+}
+function heatBar(v, max) {
+  const pct = Math.max(0, Math.min(100, (parseFloat(v) || 0) / (max || 100) * 100));
+  const hue = 120 - pct * 1.2;
+  return '<div style="background:var(--border);border-radius:4px;height:8px;width:70px;display:inline-block;vertical-align:middle;">' +
+    '<div style="background:hsl(' + hue + ',70%,50%);border-radius:4px;height:8px;width:' + pct + '%;"></div></div> ' +
+    '<span style="font-size:11px;">' + (Math.round(pct * 10) / 10) + '</span>';
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g,
+    c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function sortableTable(cols, rows, id) {
+  /* cols: [{key,label,render?}] — click header to sort. */
+  const state = {key: cols[0].key, dir: -1};
+  function cellHtml(col, row) {
+    return col.render ? col.render(row[col.key], row) : esc(row[col.key]);
+  }
+  function draw() {
+    const sorted = rows.slice().sort((a, b) => {
+      let av = a[state.key], bv = b[state.key];
+      const an = parseFloat(av), bn = parseFloat(bv);
+      if (!isNaN(an) && !isNaN(bn)) return (an - bn) * state.dir * -1;
+      return String(av).localeCompare(String(bv)) * state.dir * -1;
+    });
+    const thead = '<tr>' + cols.map(c =>
+      '<th data-key="' + c.key + '" style="padding:8px 10px;text-align:left;border-bottom:2px solid var(--border);cursor:pointer;user-select:none;white-space:nowrap;">' +
+      esc(c.label) + (state.key === c.key ? (state.dir < 0 ? ' ▾' : ' ▴') : '') + '</th>').join('') + '</tr>';
+    const tbody = sorted.slice(0, 300).map(r =>
+      '<tr>' + cols.map(c => '<td style="padding:6px 10px;border-bottom:1px solid var(--border);">' +
+        cellHtml(c, r) + '</td>').join('') + '</tr>').join('');
+    const el = document.getElementById(id);
+    el.innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:12.5px;">' +
+      '<thead>' + thead + '</thead><tbody>' + tbody + '</tbody></table>' +
+      (sorted.length > 300 ? '<div style="font-size:11px;color:var(--text-muted);margin-top:6px;">Showing first 300 of ' + sorted.length + ' — download XLSX/CSV for the full set.</div>' : '');
+    el.querySelectorAll('th').forEach(th => th.onclick = () => {
+      const k = th.dataset.key;
+      if (state.key === k) state.dir *= -1; else { state.key = k; state.dir = -1; }
+      draw();
+    });
+  }
+  draw();
+}
+
+function renderKw(sheets) {
+  const results = document.getElementById('kr-results');
+  const kws = sheets.Keywords || [];
+  const regions = sheets.RegionalInterest || [];
+  const related = sheets.RelatedQueries || [];
+
+  const kwCols = [
+    {key: 'keyword', label: 'Keyword', render: (v, r) =>
+      '<b>' + esc(v) + '</b>' + (r.depth === 0 ? ' <span style="font-size:10px;background:var(--accent);color:#fff;border-radius:4px;padding:1px 5px;">seed</span>' : '')},
+    {key: 'volume_proxy', label: 'Volume Proxy', render: v => heatBar(v, 100)},
+    {key: 'trend_direction', label: 'Trend', render: v => trendArrow(v)},
+    {key: 'velocity_pct', label: 'Velocity %'},
+    {key: 'competition', label: 'Competition', render: v => heatBar(v, 100)},
+    {key: 'commercial_intent', label: 'Intent', render: v => heatBar(v, 100)},
+    {key: 'opportunity_score', label: 'Opportunity', render: v => heatBar(v, 100)},
+    {key: 'top_region', label: 'Top Region'},
+    {key: 'result_count', label: 'Results'},
+    {key: 'featured_snippet', label: 'FS', render: v => v ? '✓' : ''},
+    {key: 'paa', label: 'PAA', render: v => v ? '✓' : ''},
+    {key: 'trends_status', label: 'Status'}
+  ];
+  const regCols = [
+    {key: 'region_name', label: 'Region'},
+    {key: 'region_code', label: 'Code'},
+    {key: 'keyword', label: 'Keyword'},
+    {key: 'region_score', label: 'Region Score', render: v => heatBar(v, 100)}
+  ];
+  const relCols = [
+    {key: 'keyword', label: 'Seed'},
+    {key: 'query', label: 'Query'},
+    {key: 'type', label: 'Type', render: v =>
+      v === 'rising' ? '<span style="color:#16a34a;font-weight:600;">rising ↗</span>' :
+      '<span style="color:var(--text-muted);">top</span>'},
+    {key: 'growth', label: 'Growth'}
+  ];
+
+  results.innerHTML =
+    '<h3 style="font-size:15px;margin:14px 0 8px;">Keywords (' + kws.length + ')</h3>' +
+    '<div id="kw-tbl"></div>' +
+    '<h3 style="font-size:15px;margin:20px 0 8px;">Regional Interest (' + regions.length + ')</h3>' +
+    '<div id="reg-tbl"></div>' +
+    '<h3 style="font-size:15px;margin:20px 0 8px;">Related Queries (' + related.length + ')</h3>' +
+    '<div id="rel-tbl"></div>';
+
+  sortableTable(kwCols, kws, 'kw-tbl');
+  sortableTable(regCols, regions, 'reg-tbl');
+  sortableTable(relCols, related, 'rel-tbl');
+}
+
+async function exportKw(fmt) {
+  if (!KW_STATE.sheets) return;
+  const status = document.getElementById('kr-status');
+  status.textContent = '⏳ Building export…';
+  try {
+    const resp = await fetch('/keyword-research/export', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({format: fmt, sheets: KW_STATE.sheets, seed: KW_STATE.seed})
+    });
+    if (!resp.ok) throw new Error('Export failed (' + resp.status + ')');
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'keywords-' + KW_STATE.seed.replace(/[^a-zA-Z0-9]+/g, '-').toLowerCase() + '.' + (fmt === 'csv' ? 'zip' : 'xlsx');
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    status.textContent = '✅ Complete.';
+  } catch (e) {
+    status.textContent = '❌ ' + e.message;
+  }
+}
+</script>
+
+
