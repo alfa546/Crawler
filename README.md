@@ -4,7 +4,7 @@
 
 # 🕷️ Crawler
 
-**Enterprise-Grade, Self-Hosted SEO Crawler & Technical Auditing Platform**
+**Enterprise-Grade, Self-Hosted SEO Crawler & Technical Auditing Platform for developers**
 
 An open-source alternative to Screaming Frog, Sitebulb & Ahrefs — unlimited URLs, zero subscription, 100% local.
 
