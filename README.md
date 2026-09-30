@@ -6,7 +6,7 @@
 
 **Enterprise-Grade, Self-Hosted SEO Crawler & Technical Auditing Platform for developers**
 
-An open-source alternative to Screaming Frog, Sitebulb & Ahrefs — unlimited URLs, zero subscription, 100% local.
+An open-source alternative to Screaming Frog, Sitebulb & Ahrefs — unlimited URLs, zero subscription, 100% local and light weight.
 
 [![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-blue)](#-installation)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)](https://www.python.org/downloads/)
