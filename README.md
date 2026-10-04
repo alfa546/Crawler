@@ -31,7 +31,7 @@ An open-source alternative to Screaming Frog, Sitebulb & Ahrefs — unlimited UR
 
 ## 📖 About The Project
 
-**Crawler** is an enterprise-grade, self-hosted technical SEO platform built for SEO professionals, developers, and website owners. It provides limitless crawling and deep technical auditing without subscription fees or per-URL limits.
+**Crawler** is an enterprise-grade, self-hosted technical SEO platform built for SEO professionals, developers, and website owners. It provides limitless/Unlimited crawling and deep technical auditing without subscription fees or per-URL limits.
 
 At its core, Crawler is driven by a multithreaded engine capable of analyzing thousands of URLs concurrently — with per-host politeness, adaptive rate-limit backoff, and WAF detection baked in. It goes beyond basic HTML parsing by offering headless JavaScript rendering for modern frameworks (React, Vue, SPAs) and intelligent CMS detection with one-click recommended settings.
 
